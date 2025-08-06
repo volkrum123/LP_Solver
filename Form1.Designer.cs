@@ -29,11 +29,9 @@
         private void InitializeComponent()
         {
             label1 = new Label();
-            txtFilePath = new TextBox();
-            btnLoadFile = new Button();
-            btnExportOutput = new Button();
-            lstOutput = new ListBox();
-            btnSolveSimplex = new Button();
+            txtInput = new TextBox();
+            btnParse = new Button();
+            txtOutput = new RichTextBox();
             SuspendLayout();
             // 
             // label1
@@ -45,58 +43,42 @@
             label1.TabIndex = 0;
             label1.Text = "Load LP model input file:";
             // 
-            // txtFilePath
+            // txtInput
             // 
-            txtFilePath.Location = new Point(184, 46);
-            txtFilePath.Name = "txtFilePath";
-            txtFilePath.Size = new Size(428, 27);
-            txtFilePath.TabIndex = 1;
+            txtInput.Location = new Point(184, 46);
+            txtInput.Multiline = true;
+            txtInput.Name = "txtInput";
+            txtInput.ScrollBars = ScrollBars.Vertical;
+            txtInput.Size = new Size(400, 150);
+            txtInput.TabIndex = 1;
             // 
-            // btnLoadFile
+            // btnParse
             // 
-            btnLoadFile.Location = new Point(51, 46);
-            btnLoadFile.Name = "btnLoadFile";
-            btnLoadFile.Size = new Size(94, 29);
-            btnLoadFile.TabIndex = 2;
-            btnLoadFile.Text = "Load file";
-            btnLoadFile.UseVisualStyleBackColor = true;
+            btnParse.Location = new Point(51, 46);
+            btnParse.Name = "btnParse";
+            btnParse.Size = new Size(94, 29);
+            btnParse.TabIndex = 2;
+            btnParse.Text = "Load file";
+            btnParse.UseVisualStyleBackColor = true;
+            btnParse.Click += btnParse_Click;
             // 
-            // btnExportOutput
+            // txtOutput
             // 
-            btnExportOutput.Location = new Point(371, 94);
-            btnExportOutput.Name = "btnExportOutput";
-            btnExportOutput.Size = new Size(94, 29);
-            btnExportOutput.TabIndex = 3;
-            btnExportOutput.Text = "Export";
-            btnExportOutput.UseVisualStyleBackColor = true;
-            // 
-            // lstOutput
-            // 
-            lstOutput.FormattingEnabled = true;
-            lstOutput.Location = new Point(3, 141);
-            lstOutput.Name = "lstOutput";
-            lstOutput.Size = new Size(785, 304);
-            lstOutput.TabIndex = 4;
-            // 
-            // btnSolveSimplex
-            // 
-            btnSolveSimplex.Location = new Point(231, 94);
-            btnSolveSimplex.Name = "btnSolveSimplex";
-            btnSolveSimplex.Size = new Size(94, 29);
-            btnSolveSimplex.TabIndex = 5;
-            btnSolveSimplex.Text = "Primal";
-            btnSolveSimplex.UseVisualStyleBackColor = true;
+            txtOutput.Location = new Point(184, 264);
+            txtOutput.Name = "txtOutput";
+            txtOutput.ReadOnly = true;
+            txtOutput.Size = new Size(400, 150);
+            txtOutput.TabIndex = 3;
+            txtOutput.Text = "";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
-            Controls.Add(btnSolveSimplex);
-            Controls.Add(lstOutput);
-            Controls.Add(btnExportOutput);
-            Controls.Add(btnLoadFile);
-            Controls.Add(txtFilePath);
+            Controls.Add(txtOutput);
+            Controls.Add(btnParse);
+            Controls.Add(txtInput);
             Controls.Add(label1);
             Name = "Form1";
             Text = "Form1";
@@ -108,10 +90,8 @@
 
 
         private Label label1;
-        private TextBox txtFilePath;
-        private Button btnLoadFile;
-        private Button btnExportOutput;
-        private ListBox lstOutput;
-        private Button btnSolveSimplex;
+        private TextBox txtInput;
+        private Button btnParse;
+        private RichTextBox txtOutput;
     }
 }
