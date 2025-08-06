@@ -64,6 +64,7 @@
             // 
             // txtOutput
             // 
+            txtOutput.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 0);
             txtOutput.Location = new Point(184, 264);
             txtOutput.Name = "txtOutput";
             txtOutput.ReadOnly = true;
