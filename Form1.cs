@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace LP_Solver
 {
@@ -25,6 +26,7 @@ namespace LP_Solver
 
             var tableau = CreateSimplexTableau(parsed.objectiveCoeffs, parsed.constraints);
             DisplayTableau(tableau);
+            SolveSimplex(tableau);
         }
 
         private (string objectiveType, List<int> objectiveCoeffs, List<string> constraints) ParseInput(string input)
@@ -150,11 +152,12 @@ namespace LP_Solver
                     tableau[i + 1, width - 1] = double.Parse(rhsMatch.Value);
                 }
             }
-
             return tableau;
         }
-        private void DisplayTableau(double[,] tableau)
+        private void DisplayTableau( double[,] tableau)
         {
+
+            
             txtOutput.AppendText("\r\nSimplex Tableau:\r\n");
 
             int rows = tableau.GetLength(0);
@@ -189,7 +192,94 @@ namespace LP_Solver
                 }
                 txtOutput.AppendText("\r\n");
             }
+            
         }
+        
+
+        private void SolveSimplex(double[,] tableau)
+        {
+            int rows = tableau.GetLength(0);
+            int cols = tableau.GetLength(1);
+            int numConstraints = rows - 1;
+
+            int[] basis = new int[numConstraints];
+            for (int i = 0; i < numConstraints; i++)
+                basis[i] = cols - numConstraints - 1 + i;
+
+            int iteration = 1;
+
+            while (PerformSimplexIteration(tableau, numConstraints, cols, basis))
+            {
+                txtOutput.AppendText($"\r\nIteration {iteration++}:\r\n");
+                DisplayTableau(tableau); // ← Using your existing method
+            }
+
+            txtOutput.AppendText("\r\nOptimal solution reached.\r\n");
+        }
+        private bool PerformSimplexIteration(double[,] tableau, int numConstraints, int numCols, int[] basis)
+        {
+            int pivotCol = -1;
+            double mostNegative = 0;
+
+            // Step 1: Find entering variable (most negative in objective row)
+            for (int j = 0; j < numCols - 1; j++)
+            {
+                if (tableau[0, j] < mostNegative)
+                {
+                    mostNegative = tableau[0, j];
+                    pivotCol = j;
+                }
+            }
+
+            // If there's no negative value in objective row, optimal is reached
+            if (pivotCol == -1)
+                return false;
+
+            // Step 2: Find leaving variable (min positive ratio RHS / pivotCol)
+            int pivotRow = -1;
+            double minRatio = double.MaxValue;
+
+            for (int i = 1; i <= numConstraints; i++)
+            {
+                double pivotVal = tableau[i, pivotCol];
+                if (pivotVal > 0)
+                {
+                    double ratio = tableau[i, numCols - 1] / pivotVal;
+                    if (ratio < minRatio)
+                    {
+                        minRatio = ratio;
+                        pivotRow = i;
+                    }
+                }
+            }
+
+            if (pivotRow == -1)
+                throw new Exception("Unbounded solution.");
+
+            basis[pivotRow - 1] = pivotCol;
+
+            // Step 3: Pivot
+            double pivotElement = tableau[pivotRow, pivotCol];
+
+            // Normalize the pivot row
+            for (int j = 0; j < numCols; j++)
+                tableau[pivotRow, j] /= pivotElement;
+
+            // Eliminate pivot column in other rows
+            for (int i = 0; i <= numConstraints; i++)
+            {
+                if (i == pivotRow) continue;
+
+                double factor = tableau[i, pivotCol];
+                for (int j = 0; j < numCols; j++)
+                {
+                    tableau[i, j] -= factor * tableau[pivotRow, j];
+                }
+            }
+
+            return true; // Another iteration needed
+        }
+        
 
     }
 }

@@ -65,10 +65,10 @@
             // txtOutput
             // 
             txtOutput.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            txtOutput.Location = new Point(184, 264);
+            txtOutput.Location = new Point(60, 223);
             txtOutput.Name = "txtOutput";
             txtOutput.ReadOnly = true;
-            txtOutput.Size = new Size(400, 150);
+            txtOutput.Size = new Size(342, 173);
             txtOutput.TabIndex = 3;
             txtOutput.Text = "";
             // 
@@ -76,7 +76,7 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(1085, 569);
             Controls.Add(txtOutput);
             Controls.Add(btnParse);
             Controls.Add(txtInput);
