@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace LP_Solver.Models
@@ -19,7 +18,7 @@ namespace LP_Solver.Models
             int width = numVariables + numSlack + 1;
             int height = numConstraints + 1;
 
-            double[,] tableau = new double[width, height];
+            double[,] tableau = new double[height,width];
 
             for (int j = 0; j < numVariables; j++)
             {
@@ -48,30 +47,23 @@ namespace LP_Solver.Models
             }
             return tableau;
         }
-
-        public void Solve(double[,] tableau, Action<string> log)
+        public void Solve(double[,] tableau, Action<string> logOutput, int numVariables, int numConstraints)
         {
-            int rows = tableau.GetLength(0);
-            int cols = tableau.GetLength(1);
-            int numConstraints = rows - 1;
-
             int[] basis = new int[numConstraints];
-            for (int i = 0; i < numConstraints; i++)
-            {
-                basis[i] = cols - numConstraints - 1 + i;
-            }
             int iteration = 1;
-            while (PerformIteration(tableau,numConstraints, cols, basis))
+
+            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis))
             {
-                log($"\r\nIteration {iteration++}:\r\n{TableauToString(tableau)}");
+                logOutput($"\r\nIteration {iteration++}:\r\n");
+                logOutput(TableauToString(tableau, numVariables, numConstraints));
             }
-            log("\r\nOptimal solution reached.\r\n");
+            logOutput("\r\nOptimal solution reached.\r\n");
         }
 
         private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis)
         {
             int pivotCol = -1;
-            double mostNegative = 0;
+            double mostNegative = -1e-9;
 
             for (int j = 0; j<numCols -1; j++)
             {
@@ -94,7 +86,7 @@ namespace LP_Solver.Models
                 if(pivotVal > 0)
                 {
                     double ratio = tableau[i,numCols - 1]/pivotVal;
-                    if(ratio > minRatio)
+                    if(ratio < minRatio)
                     {
                         minRatio = ratio;
                         pivotRow = i;
@@ -113,7 +105,7 @@ namespace LP_Solver.Models
             {
                 if (i == pivotRow) continue;
                 double factor = tableau[i, pivotCol];
-                for(int j = 0;j <= numCols; j++)
+                for(int j = 0;j < numCols; j++)
                 {
                     tableau[i,j] -= factor * tableau[pivotRow,j];
                 }
@@ -121,20 +113,40 @@ namespace LP_Solver.Models
             return true;
         }
 
-        public string TableauToString(double[,] tableau)
+        public string TableauToString(double[,] tableau, int numVariables, int numConstraints)
         {
-            var sb = new StringBuilder();
             int rows = tableau.GetLength(0);
             int cols = tableau.GetLength(1);
-            for(int i = 0; i < rows; i++)
+
+            // Generate column headers: x1,x2,...,s1,s2,...,RHS
+            var colHeaders = new List<string>();
+            for (int i = 0; i < numVariables; i++)
+                colHeaders.Add("x" + (i + 1));
+            for (int i = 0; i < numConstraints; i++)
+                colHeaders.Add("s" + (i + 1));
+            colHeaders.Add("RHS");
+
+            var sb = new StringBuilder();
+
+            // Header row
+            sb.Append("     ");
+            foreach (var col in colHeaders)
+                sb.Append(col.PadLeft(8));
+            sb.AppendLine();
+
+            // Data rows
+            for (int i = 0; i < rows; i++)
             {
+                string rowHeader = (i == 0) ? "z" : $"C{i}";
+                sb.Append(rowHeader.PadRight(5));
                 for (int j = 0; j < cols; j++)
-                {
-                    sb.Append($"{tableau[i, j],6:F2}");
-                }
+                    sb.Append(tableau[i, j].ToString("0.###").PadLeft(8));
                 sb.AppendLine();
             }
+
             return sb.ToString();
+           
         }
     }
 }
+
