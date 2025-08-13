@@ -30,8 +30,8 @@
         {
             label1 = new Label();
             txtInput = new TextBox();
-            btnParse = new Button();
             txtOutput = new RichTextBox();
+            comboBox1 = new ComboBox();
             SuspendLayout();
             // 
             // label1
@@ -45,44 +45,47 @@
             // 
             // txtInput
             // 
-            txtInput.Location = new Point(184, 46);
+            txtInput.Location = new Point(410, 48);
             txtInput.Multiline = true;
             txtInput.Name = "txtInput";
             txtInput.ScrollBars = ScrollBars.Vertical;
             txtInput.Size = new Size(400, 150);
             txtInput.TabIndex = 1;
             // 
-            // btnParse
-            // 
-            btnParse.Location = new Point(51, 46);
-            btnParse.Name = "btnParse";
-            btnParse.Size = new Size(94, 29);
-            btnParse.TabIndex = 2;
-            btnParse.Text = "Load file";
-            btnParse.UseVisualStyleBackColor = true;
-            btnParse.Click += btnParse_Click;
-            // 
             // txtOutput
             // 
             txtOutput.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            txtOutput.Location = new Point(60, 223);
+            txtOutput.Location = new Point(12, 217);
             txtOutput.Name = "txtOutput";
             txtOutput.ReadOnly = true;
             txtOutput.Size = new Size(967, 306);
             txtOutput.TabIndex = 3;
             txtOutput.Text = "";
             // 
+            // comboBox1
+            // 
+            comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBox1.FlatStyle = FlatStyle.Flat;
+            comboBox1.Font = new Font("Segoe UI", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            comboBox1.FormattingEnabled = true;
+            comboBox1.Location = new Point(28, 46);
+            comboBox1.Name = "comboBox1";
+            comboBox1.Size = new Size(240, 31);
+            comboBox1.TabIndex = 4;
+            comboBox1.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1085, 569);
+            Controls.Add(comboBox1);
             Controls.Add(txtOutput);
-            Controls.Add(btnParse);
             Controls.Add(txtInput);
             Controls.Add(label1);
             Name = "Form1";
             Text = "Form1";
+            Load += Form1_Load_1;
             ResumeLayout(false);
             PerformLayout();
         }
@@ -92,7 +95,7 @@
 
         private Label label1;
         private TextBox txtInput;
-        private Button btnParse;
         private RichTextBox txtOutput;
+        private ComboBox comboBox1;
     }
 }
