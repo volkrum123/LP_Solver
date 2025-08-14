@@ -46,6 +46,39 @@ namespace LP_Solver
             txtOutput.AppendText(text);
         }
 
-       
+        private void btnLoadFile_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+                openFileDialog.Title = "Select LP Model File";
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    // Read file content
+                    string lpModelText = File.ReadAllText(openFileDialog.FileName);
+
+                    // Put it into the txtInput box for preview
+                    txtInput.Text = lpModelText;
+
+                }
+            }
+        }
+
+        private void btnExport_Click(object sender, EventArgs e)
+        {
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            {
+                saveFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+                saveFileDialog.Title = "Save Output As";
+                saveFileDialog.FileName = "LP_Output.txt"; // default filename
+
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    File.WriteAllText(saveFileDialog.FileName, txtOutput.Text);
+                    MessageBox.Show("Output saved successfully!", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
     }
 }
