@@ -9,12 +9,12 @@ namespace LP_Solver.Models
     internal class LPModel
     {
         public string ObjectiveType { get; set; }
-        public List<int> ObjectiveCoefficients { get; set; }
+        public List<double> ObjectiveCoefficients { get; set; }
         public List<string> Constraints { get; set; }
 
         public LPModel()
         {
-            ObjectiveCoefficients = new List<int>();
+            ObjectiveCoefficients = new List<double>();
             Constraints = new List<string>();
         }
     }

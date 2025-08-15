@@ -33,7 +33,7 @@ namespace LP_Solver.Controllers
             int numConstraints = model.Constraints.Count;
 
             logOutput("\r\nInitial Tableau:\r\n" + _solver.TableauToString(tableau,numVariables,numConstraints));
-            _solver.Solve(tableau,logOutput, numVariables, numConstraints);
+            _solver.Solve(tableau, model.ObjectiveType,logOutput, numVariables, numConstraints);
         }
     }
 }

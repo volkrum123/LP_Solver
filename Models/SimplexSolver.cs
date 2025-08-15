@@ -22,7 +22,17 @@ namespace LP_Solver.Models
 
             for (int j = 0; j < numVariables; j++)
             {
-                tableau[0, j] = -model.ObjectiveCoefficients[j];
+                double coeff = model.ObjectiveCoefficients[j];
+
+                if (model.ObjectiveType.Equals("Max", StringComparison.OrdinalIgnoreCase))
+                {
+                    tableau[0, j] = -coeff; // Max → negate for simplex
+                }
+                else if (model.ObjectiveType.Equals("Min", StringComparison.OrdinalIgnoreCase))
+                {
+                    tableau[0, j] = coeff;  // Min → keep as-is, pivot rule will differ
+                }
+                //tableau[0, j] = -model.ObjectiveCoefficients[j];
             }
             for(int i = 0; i < numConstraints; i++)
             {
@@ -47,12 +57,12 @@ namespace LP_Solver.Models
             }
             return tableau;
         }
-        public void Solve(double[,] tableau, Action<string> logOutput, int numVariables, int numConstraints)
+        public void Solve(double[,] tableau, string objectiveType, Action<string> logOutput, int numVariables, int numConstraints)
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
 
-            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis))
+            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis, objectiveType))
             {
                 logOutput($"\r\nIteration {iteration++}:\r\n");
                 logOutput(TableauToString(tableau, numVariables, numConstraints));
@@ -60,17 +70,28 @@ namespace LP_Solver.Models
             logOutput("\r\nOptimal solution reached.\r\n");
         }
 
-        private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis)
+        private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType)
         {
             int pivotCol = -1;
-            double mostNegative = -1e-9;
+            double mostNegative = 0;
 
             for (int j = 0; j<numCols -1; j++)
             {
-                if (tableau[0, j] < mostNegative)
+                if (objectiveType.Equals("Max", StringComparison.OrdinalIgnoreCase))
                 {
-                    mostNegative = tableau[0, j];
-                    pivotCol = j;
+                    if (tableau[0, j] < mostNegative)
+                    {
+                        mostNegative = tableau[0, j];
+                        pivotCol = j;
+                    }
+                }
+                else if (objectiveType.Equals("Min", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (tableau[0, j] > mostNegative)
+                    {
+                        mostNegative = tableau[0, j];
+                        pivotCol = j;
+                    }
                 }
             }
             if(pivotCol == -1)
@@ -83,7 +104,7 @@ namespace LP_Solver.Models
             for(int i =1; i <= numConstraints; i++)
             {
                 double pivotVal = tableau[i,pivotCol];
-                if(pivotVal > 0)
+                if(pivotVal > 1e-9)
                 {
                     double ratio = tableau[i,numCols - 1]/pivotVal;
                     if(ratio < minRatio)

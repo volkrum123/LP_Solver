@@ -41,7 +41,7 @@ namespace LP_Solver.Models
             return model;   
         }
 
-        private List<int> GetObjectiveCoefficients( string line)
+        private List<double> GetObjectiveCoefficients( string line)
         {
             var matches = Regex.Matches(line, @"([+-]?\d*\.?\d*)\s*\*?\s*x\d+");
             return matches.Cast<Match>().Select(m =>
@@ -49,13 +49,13 @@ namespace LP_Solver.Models
                 string coeff = Regex.Match(m.Value, @"[+-]?\d*\.?\d*").Value;
                 if(string.IsNullOrWhiteSpace(coeff) || coeff == "+")
                 {
-                    return 1;
+                    return 1.0;
                 }
                 if (coeff == "-")
                 {
-                    return -1;
+                    return -1.0;
                 }
-                return int.Parse(coeff);
+                return double.Parse(coeff);
             }).ToList();
         }
 
