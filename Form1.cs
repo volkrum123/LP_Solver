@@ -18,6 +18,7 @@ namespace LP_Solver
             comboBox1.Items.Clear();
             comboBox1.Items.Add("Solve using:");
             comboBox1.Items.Add("Primal Simplex");
+            comboBox1.Items.Add("Dual Simplex");
             comboBox1.Items.Add("Revised Primal Simplex");
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
@@ -37,6 +38,10 @@ namespace LP_Solver
                 case 1:
                     txtOutput.Clear();
                     _controller.SolveFromInput(txtInput.Text, AppendOutput);
+                    break;
+                case 2:
+                    txtOutput.Clear();
+                    _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
             }
             comboBox1.SelectedIndex = 0;
