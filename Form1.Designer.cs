@@ -56,6 +56,7 @@
             txtInput.ScrollBars = ScrollBars.Vertical;
             txtInput.Size = new Size(743, 150);
             txtInput.TabIndex = 1;
+           
             // 
             // txtOutput
             // 

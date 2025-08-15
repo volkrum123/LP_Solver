@@ -43,10 +43,10 @@ namespace LP_Solver.Models
 
         private List<int> GetObjectiveCoefficients( string line)
         {
-            var matches = Regex.Matches(line, @"([+-]?\d*)\s*\*?\s*x\d+");
+            var matches = Regex.Matches(line, @"([+-]?\d*\.?\d*)\s*\*?\s*x\d+");
             return matches.Cast<Match>().Select(m =>
             {
-                string coeff = Regex.Match(m.Value, @"[+-]?\d*").Value;
+                string coeff = Regex.Match(m.Value, @"[+-]?\d*\.?\d*").Value;
                 if(string.IsNullOrWhiteSpace(coeff) || coeff == "+")
                 {
                     return 1;
@@ -61,14 +61,14 @@ namespace LP_Solver.Models
 
         private string ParseConstraint(string line )
         {
-            var coeffMatches = Regex.Matches(line, @"([+-]?\d*)\s*\*?\s*x\d+");
+            var coeffMatches = Regex.Matches(line, @"([+-]?\d*\.?\d*)\s*\*?\s*x\d+");
             var varMatches = Regex.Matches(line, @"x\d+");
 
             List<string> terms = new List<string>();
 
             for(int i = 0; i < varMatches.Count; i++)
             {
-                string coeff = Regex.Match(coeffMatches[i].Value, @"[+-]?\d*").Value;
+                string coeff = Regex.Match(coeffMatches[i].Value, @"[+-]?\d*\.?\d*").Value;
                 if (string.IsNullOrWhiteSpace(coeff) || coeff == "+")
                 {
                     coeff = "1";
@@ -83,7 +83,7 @@ namespace LP_Solver.Models
                         line.Contains(">=") ? ">=" :
                         line.Contains("=") ? "=" : "?";
 
-            string rhs = Regex.Match(line, @"\d+\s*$").Value;
+            string rhs = Regex.Match(line, @"-?\d*\.?\d+\s*$").Value;
             string c = string.Join(" ", terms)+ " " +op+ " " + rhs;
             return c;
         }

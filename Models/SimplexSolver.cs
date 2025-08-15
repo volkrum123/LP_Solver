@@ -27,19 +27,19 @@ namespace LP_Solver.Models
             for(int i = 0; i < numConstraints; i++)
             {
                 string constraint = model.Constraints[i];
-                var coeffMatches = Regex.Matches(constraint, @"([+-]?\d*)\s*\*?\s*x(\d+)");
+                var coeffMatches = Regex.Matches(constraint, @"([+-]?\d*\.?\d*)\s*\*?\s*x(\d+)");
                 foreach (Match match in coeffMatches)
                 {
                     string coeffStr = match.Groups[1].Value.Trim();
                     string varIndexStr = match.Groups[2].Value;
                     int varIndex = int.Parse(varIndexStr) - 1;
-                    int coeff = string.IsNullOrEmpty(coeffStr) || coeffStr == "+" ? 1:
-                        coeffStr == "-" ? -1 : int.Parse(coeffStr);
+                    double coeff = string.IsNullOrEmpty(coeffStr) || coeffStr == "+" ? 1.0:
+                        coeffStr == "-" ? -1.0 : double.Parse(coeffStr);
                     tableau[i + 1, varIndex] = coeff;
                 }
-                tableau[i + 1, numVariables + i] = 1;
+                tableau[i + 1, numVariables + i] = 1.0;
 
-                var rhsMatch = Regex.Match(constraint, @"(\d+)\s*$");
+                var rhsMatch = Regex.Match(constraint, @"-?\d*\.?\d+\s*$");
                 if (rhsMatch.Success)
                 {
                     tableau[i + 1, width - 1] = double.Parse(rhsMatch.Value);
