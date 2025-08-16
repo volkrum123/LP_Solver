@@ -76,7 +76,7 @@ namespace LP_Solver.Models
 
             return (tableau, constraintTypes);
         }
-        public void SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints)
+        public void SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
@@ -87,7 +87,34 @@ namespace LP_Solver.Models
                 logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
             }
 
-            logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
+            logOutput("\r\nDual simplex phase completed.\r\n");
+            logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+
+            // Check for primal optimality
+            bool primalOptimal = true;
+            for (int j = 0; j < numVariables; j++)
+            {
+                double coeff = tableau[0, j];
+
+                if ((objectiveType.ToLower() == "max" && coeff < -1e-9) ||
+                    (objectiveType.ToLower() == "min" && coeff > 1e-9))
+                {
+                    primalOptimal = false;
+                    break;
+                }
+            }
+
+            // If not optimal, call primal simplex
+            if (!primalOptimal)
+            {
+                logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
+                var primalSolver = new SimplexSolver();
+                primalSolver.Solve(tableau, objectiveType, logOutput, numVariables, numConstraints);
+            }
+            else
+            {
+                logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
+            }
         }
 
         private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis)

@@ -57,7 +57,7 @@ namespace LP_Solver.Controllers
                 _dualSolver.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
             // Solve using dual simplex
-            _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints);
+            _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints,model.ObjectiveType);
         }
     }
 }
