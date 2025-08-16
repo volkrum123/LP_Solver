@@ -48,21 +48,16 @@ namespace LP_Solver.Controllers
                 logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
 
             // Create tableau
-            var tableau = _dualSolver.CreateTableau(model);
+            var (tableau,ConstraintTypes) = _dualSolver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
 
-            // Determine constraint types for tableau headers
-            List<string> constraintTypes = model.Constraints
-                .Select(c => c.Contains(">=") ? ">=" : "<=")
-                .ToList();
-
             // Print initial tableau
             logOutput("\r\nInitial Tableau:\r\n" +
-                _dualSolver.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+                _dualSolver.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
             // Solve using dual simplex
-            _dualSolver.SolveDual(tableau, logOutput, numVariables, numConstraints);
+            _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints);
         }
     }
 }

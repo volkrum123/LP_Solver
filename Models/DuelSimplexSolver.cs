@@ -9,7 +9,7 @@ namespace LP_Solver.Models
 {
     internal class DuelSimplexSolver
     {
-        public double[,] CreateTableau(LPModel model)
+        public (double[,],List<string>) CreateTableau(LPModel model)
         {
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
@@ -17,12 +17,13 @@ namespace LP_Solver.Models
             int height = numConstraints + 1;
 
             double[,] tableau = new double[height, width];
+            var constraintTypes = new List<string>();
 
             // Objective function (row 0)
             for (int j = 0; j < numVariables; j++)
             {
                 double coeff = model.ObjectiveCoefficients[j];
-                tableau[0, j] = model.ObjectiveType.ToLower() == "min" ? coeff : -coeff;
+                tableau[0, j] = model.ObjectiveType.ToLower() == "min" ? -coeff : -coeff;
             }
 
             // Constraints
@@ -56,6 +57,7 @@ namespace LP_Solver.Models
                 if (isLE)
                 {
                     tableau[i + 1, slackCol] = 1.0; // slack variable
+                    constraintTypes.Add("<=");
                 }
                 else if (isGE)
                 {
@@ -65,15 +67,16 @@ namespace LP_Solver.Models
 
                     tableau[i + 1, slackCol] = 1.0; // surplus variable now positive
                     rhs *= -1; // flip RHS
+                    constraintTypes.Add(">=");
                 }
 
                 // Assign RHS
                 tableau[i + 1, width - 1] = rhs;
             }
 
-            return tableau;
+            return (tableau, constraintTypes);
         }
-        public void SolveDual(double[,] tableau, Action<string> logOutput, int numVariables, int numConstraints)
+        public void SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints)
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
@@ -81,7 +84,7 @@ namespace LP_Solver.Models
             while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis))
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
-                logOutput(TableauToString(tableau, numVariables, numConstraints));
+                logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
             }
 
             logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
