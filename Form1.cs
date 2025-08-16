@@ -43,6 +43,17 @@ namespace LP_Solver
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
+                case 6:
+                    txtOutput.Clear();
+                    try
+                    {
+                        _controller.SolveKnapsackFromInput(txtInput.Text, AppendOutput);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendOutput($"Error: {ex.Message}\r\n");
+                    }
+                    break;
             }
             comboBox1.SelectedIndex = 0;
         }
