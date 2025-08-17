@@ -12,12 +12,15 @@ namespace LP_Solver.Controllers
         private LPParser _parser;
         private SimplexSolver _solver;
         private DuelSimplexSolver _dualSolver;
+        private BranchAndBoundSolver _bbSolver;
+
 
         public LPController()
         {
             _parser = new LPParser();
             _solver = new SimplexSolver();
             _dualSolver = new DuelSimplexSolver();
+            _bbSolver = new BranchAndBoundSolver();
         }
 
         public void SolveFromInput(string input, Action<string> logOutput)
@@ -58,6 +61,17 @@ namespace LP_Solver.Controllers
 
             // Solve using dual simplex
             _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints,model.ObjectiveType);
+        }
+
+        public void BranchAndBoundSolveFromInput(string input, Action<string> logOutput)
+        {
+            var model = _parser.Parse(input);
+            if (model.IntegerIndices == null || model.IntegerIndices.Count == 0)
+            {
+                // default all decision variables integer (common in assignments)
+                for (int i = 0; i < model.ObjectiveCoefficients.Count; i++) model.IntegerIndices.Add(i);
+            }
+            _bbSolver.SolveBranchAndBound(model, logOutput);
         }
     }
 }

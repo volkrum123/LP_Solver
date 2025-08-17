@@ -38,6 +38,30 @@ namespace LP_Solver.Models
                     model.Constraints.Add(ParseConstraint(line));
                 }
             }
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.Trim().ToLower();
+
+                if (line.Contains("integer"))
+                {
+                    var matches = Regex.Matches(line, @"x(\d+)");
+                    if (matches.Count > 0)
+                    {
+                        foreach (Match m in matches)
+                        {
+                            int idx = int.Parse(m.Groups[1].Value) - 1;
+                            if (!model.IntegerIndices.Contains(idx))
+                                model.IntegerIndices.Add(idx);
+                        }
+                    }
+                    else if (line.Contains("all"))
+                    {
+                        for (int i = 0; i < model.ObjectiveCoefficients.Count; i++)
+                            if (!model.IntegerIndices.Contains(i))
+                                model.IntegerIndices.Add(i);
+                    }
+                }
+            }
             return model;   
         }
 
@@ -75,7 +99,7 @@ namespace LP_Solver.Models
                 }
                 else if(coeff == "-")
                 {
-                    coeff = "-";
+                    coeff = "-1";
                 }
                 terms.Add($"{coeff}{varMatches[i].Value}");
             }

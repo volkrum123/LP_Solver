@@ -11,6 +11,9 @@ namespace LP_Solver.Models
         public string ObjectiveType { get; set; }
         public List<double> ObjectiveCoefficients { get; set; }
         public List<string> Constraints { get; set; }
+        public List<int> IntegerIndices { get; set; } = new List<int>();
+        public int NumVariables => ObjectiveCoefficients?.Count ?? 0;
+
 
         public LPModel()
         {

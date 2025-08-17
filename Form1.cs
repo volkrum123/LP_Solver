@@ -43,8 +43,12 @@ namespace LP_Solver
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
+                case 4: 
+                    txtOutput.Clear();
+                    _controller.BranchAndBoundSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
             }
-            comboBox1.SelectedIndex = 0;
+           // comboBox1.SelectedIndex = 0;
         }
         private void AppendOutput(string text)
         {
