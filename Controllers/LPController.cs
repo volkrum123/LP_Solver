@@ -13,6 +13,7 @@ namespace LP_Solver.Controllers
         private SimplexSolver _solver;
         private DuelSimplexSolver _dualSolver;
         private BranchAndBoundSolver _bbSolver;
+        private CanonicalForm _canonicalForm;
 
 
         public LPController()
@@ -21,10 +22,12 @@ namespace LP_Solver.Controllers
             _solver = new SimplexSolver();
             _dualSolver = new DuelSimplexSolver();
             _bbSolver = new BranchAndBoundSolver();
+            _canonicalForm = new CanonicalForm();
         }
 
         public void SolveFromInput(string input, Action<string> logOutput)
         {
+            // Basic model
             var model = _parser.Parse(input);
             logOutput($"Objective: {model.ObjectiveType}\r\n");
             logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
@@ -33,12 +36,20 @@ namespace LP_Solver.Controllers
                 logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
             }
 
-            var tableau = _solver.CreateTableau(model);
+            //Canonical From
+            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
+            logOutput("\r\n" + canonicalForm + "\r\n");
+
+            //Initial Tablue
+            
+            var (tableau, ConstraintTypes) = _solver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
+            logOutput("\r\nInitial Tableau:\r\n" +
+                 _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
-            logOutput("\r\nInitial Tableau:\r\n" + _solver.TableauToString(tableau,numVariables,numConstraints));
-            _solver.Solve(tableau, model.ObjectiveType,logOutput, numVariables, numConstraints);
+            _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+           
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)
@@ -57,7 +68,7 @@ namespace LP_Solver.Controllers
 
             // Print initial tableau
             logOutput("\r\nInitial Tableau:\r\n" +
-                _dualSolver.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
+                _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
             // Solve using dual simplex
             _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints,model.ObjectiveType);

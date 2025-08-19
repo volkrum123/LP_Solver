@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -80,15 +81,16 @@ namespace LP_Solver.Models
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
+            var headers = new CanonicalForm();
 
             while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis))
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
-                logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
             }
 
             logOutput("\r\nDual simplex phase completed.\r\n");
-            logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+            logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
 
             // Check for primal optimality
             bool primalOptimal = true;
@@ -109,7 +111,7 @@ namespace LP_Solver.Models
             {
                 logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
                 var primalSolver = new SimplexSolver();
-                primalSolver.Solve(tableau, objectiveType, logOutput, numVariables, numConstraints);
+                primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
             }
             else
             {
@@ -181,51 +183,6 @@ namespace LP_Solver.Models
 
             return true;
         }
-
-        public string TableauToString(double[,] tableau, int numVariables, int numConstraints, List<string>? constraintTypes = null)
-        {
-            int rows = tableau.GetLength(0);
-            int cols = tableau.GetLength(1);
-
-            // Column headers: x1,x2,...,slack/surplus, RHS
-            var colHeaders = new List<string>();
-            for (int i = 0; i < numVariables; i++)
-                colHeaders.Add("x" + (i + 1));
-
-            for (int i = 0; i < numConstraints; i++)
-            {
-                // Use constraintTypes list if provided
-                if (constraintTypes != null && constraintTypes[i] == ">=")
-                    colHeaders.Add("e" + (i + 1)); // surplus variable
-                else
-                    colHeaders.Add("s" + (i + 1)); // slack variable
-            }
-
-            colHeaders.Add("RHS");
-
-            var sb = new StringBuilder();
-
-            // Header row
-            sb.Append("     ");
-            foreach (var col in colHeaders)
-                sb.Append(col.PadLeft(8));
-            sb.AppendLine();
-
-            // Data rows
-            for (int i = 0; i < rows; i++)
-            {
-                string rowHeader = (i == 0) ? "z" : $"C{i}";
-                sb.Append(rowHeader.PadRight(5));
-                for (int j = 0; j < cols; j++)
-                {
-                    // Avoid printing -0
-                    string value = tableau[i, j].ToString("0.###").Replace("-0", "0");
-                    sb.Append(value.PadLeft(8));
-                }
-                sb.AppendLine();
-            }
-
-            return sb.ToString();
-        }
+       
     }
 }

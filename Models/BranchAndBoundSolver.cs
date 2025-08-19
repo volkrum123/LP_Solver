@@ -10,6 +10,7 @@ namespace LP_Solver.Models
     internal class BranchAndBoundSolver
     {
         private readonly SimplexSolver _solver = new SimplexSolver();
+        private readonly CanonicalForm _canonicalForm = new CanonicalForm();
         private const double TOL = 1e-6;
 
         private class Node
@@ -52,9 +53,8 @@ namespace LP_Solver.Models
                 LogCanonicalForm(simplexReady, log, header: $"Node #{nodeId} Canonical Form");
 
                 // Solve LP relaxation at this node (display ALL iterations)
-                var tableau = _solver.CreateTableau(simplexReady);
-                _solver.Solve(tableau, simplexReady.ObjectiveType, log,
-                              simplexReady.NumVariables, simplexReady.Constraints.Count);
+                var (tableau,constraintTypes) = _solver.CreateTableau(simplexReady);
+                _solver.Solve(tableau,constraintTypes,log,simplexReady.NumVariables, simplexReady.Constraints.Count, simplexReady.ObjectiveType);
 
                 // Extract objective value and solution
                 double nodeObj = tableau[0, tableau.GetLength(1) - 1];
