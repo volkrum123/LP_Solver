@@ -196,7 +196,7 @@ namespace LP_Solver.Controllers
                 .ToList();
 
             var trace = new KnapsackTrace();
-            var res = KnapsackBBSolver.Solve(items, capacity, logOutput, trace);
+            var res = KnapsackBBSolver.SolveBacktracking(items, capacity, logOutput, trace);
 
             // ---- Visuals & summary ----
             RenderAsciiRatioTable(trace, logOutput);

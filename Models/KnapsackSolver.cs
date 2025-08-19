@@ -69,7 +69,7 @@ namespace LP_Solver.Solvers
             }
         }
 
-        public static KnapsackResult Solve(
+    public static KnapsackResult Solve(
     IList<KnapsackItem> items,
     int capacity,
     Action<string> log = null,
@@ -323,5 +323,254 @@ namespace LP_Solver.Solvers
             return result;
         }
 
+        public static KnapsackResult SolveBacktracking(
+    IList<KnapsackItem> items,
+    int capacity,
+    Action<string> log = null,
+    KnapsackTrace trace = null)
+        {
+            var result = new KnapsackResult { Capacity = capacity };
+            if (items == null || items.Count == 0 || capacity <= 0) return result;
+
+            // Sort by ratio (value/weight) for bounding, keep original indices
+            var sorted = items.OrderByDescending(it => it.Ratio).ToList();
+            int n = sorted.Count;
+
+            // Trace: ratio table with rank (for your report)
+            if (trace != null)
+            {
+                for (int i = 0; i < n; i++)
+                    trace.RatioTable.Add((sorted[i].Index, sorted[i].Weight, sorted[i].Value, sorted[i].Ratio, i + 1));
+            }
+
+            int bestValue = 0, bestWeight = 0;
+            bool[] bestPickSorted = new bool[n];   // picks in "sorted" order
+            bool[] picks = new bool[n];            // working picks (sorted order)
+
+            int explored = 0, pruned = 0;
+
+            double Bound(int level, int w, int v)
+            {
+                if (w > capacity) return 0.0;
+                double bound = v;
+                int totalW = w;
+                for (int i = level; i < n; i++)
+                {
+                    var it = sorted[i];
+                    if (totalW + it.Weight <= capacity)
+                    {
+                        totalW += it.Weight;
+                        bound += it.Value;
+                    }
+                    else
+                    {
+                        int remain = capacity - totalW;
+                        if (remain > 0) bound += it.Ratio * remain; // fractional
+                        break;
+                    }
+                }
+                return bound;
+            }
+
+            // Root
+            var rootUB = Bound(0, 0, 0);
+            log?.Invoke($"[B&B-Backtracking] Start: capacity={capacity}, items={n}\r\n");
+            trace?.Nodes.Add(new TraceNode
+            {
+                Path = "P",
+                Level = 0,
+                Decision = null,
+                ItemSortedIndex = -1,
+                ItemOriginalIndex = -1,
+                Weight = 0,
+                Value = 0,
+                Bound = rootUB,
+                Status = "Expand",
+                Reason = ""
+            });
+
+            void DFS(int level, int w, int v, string path)
+            {
+                explored++;
+                double ub = Bound(level, w, v);
+                if (ub <= bestValue)
+                {
+                    pruned++;
+                    trace?.Nodes.Add(new TraceNode
+                    {
+                        Path = path,
+                        Level = level,
+                        Decision = null,
+                        ItemSortedIndex = level - 1,
+                        ItemOriginalIndex = level - 1 >= 0 ? sorted[level - 1].Index : -1,
+                        Weight = w,
+                        Value = v,
+                        Bound = ub,
+                        Status = "Prune",
+                        Reason = "bound<=incumbent"
+                    });
+                    return;
+                }
+                if (level >= n) return;
+
+                var it = sorted[level];
+
+                // ---------- EXCLUDE branch first (decision = 0) ----------
+                {
+                    string p0 = path + ".0";
+                    double ub0 = Bound(level + 1, w, v);
+                    if (ub0 > bestValue)
+                    {
+                        trace?.Nodes.Add(new TraceNode
+                        {
+                            Path = p0,
+                            Level = level + 1,
+                            Decision = 0,
+                            ItemSortedIndex = level,
+                            ItemOriginalIndex = it.Index,
+                            Weight = w,
+                            Value = v,
+                            Bound = ub0,
+                            Status = "Push",
+                            Reason = ""
+                        });
+
+                        picks[level] = false;
+                        DFS(level + 1, w, v, p0);     // recurse
+                        picks[level] = false;         // backtrack (explicit)
+                    }
+                    else
+                    {
+                        pruned++;
+                        trace?.Nodes.Add(new TraceNode
+                        {
+                            Path = p0,
+                            Level = level + 1,
+                            Decision = 0,
+                            ItemSortedIndex = level,
+                            ItemOriginalIndex = it.Index,
+                            Weight = w,
+                            Value = v,
+                            Bound = ub0,
+                            Status = "Prune",
+                            Reason = "bound<=incumbent"
+                        });
+                    }
+                }
+
+                // ---------- INCLUDE branch second (decision = 1) ----------
+                {
+                    string p1 = path + ".1";
+                    int w1 = w + it.Weight, v1 = v + it.Value;
+
+                    if (w1 > capacity)
+                    {
+                        pruned++;
+                        trace?.Nodes.Add(new TraceNode
+                        {
+                            Path = p1,
+                            Level = level + 1,
+                            Decision = 1,
+                            ItemSortedIndex = level,
+                            ItemOriginalIndex = it.Index,
+                            Weight = w1,
+                            Value = v1,
+                            Bound = 0,
+                            Status = "Prune",
+                            Reason = "infeasible"
+                        });
+                    }
+                    else
+                    {
+                        if (v1 > bestValue)
+                        {
+                            bestValue = v1;
+                            bestWeight = w1;
+                            Array.Copy(picks, bestPickSorted, n);
+                            bestPickSorted[level] = true; // include at this level
+
+                            log?.Invoke($"  * Incumbent update @ {p1}: value={bestValue}, weight={bestWeight}\r\n");
+                            trace?.Nodes.Add(new TraceNode
+                            {
+                                Path = p1,
+                                Level = level + 1,
+                                Decision = 1,
+                                ItemSortedIndex = level,
+                                ItemOriginalIndex = it.Index,
+                                Weight = w1,
+                                Value = v1,
+                                Bound = 0,
+                                Status = "Incumbent",
+                                Reason = ""
+                            });
+                        }
+
+                        double ub1 = Bound(level + 1, w1, v1);
+                        if (ub1 > bestValue)
+                        {
+                            trace?.Nodes.Add(new TraceNode
+                            {
+                                Path = p1,
+                                Level = level + 1,
+                                Decision = 1,
+                                ItemSortedIndex = level,
+                                ItemOriginalIndex = it.Index,
+                                Weight = w1,
+                                Value = v1,
+                                Bound = ub1,
+                                Status = "Push",
+                                Reason = ""
+                            });
+
+                            picks[level] = true;
+                            DFS(level + 1, w1, v1, p1); // recurse
+                            picks[level] = false;       // backtrack (explicit)
+                        }
+                        else
+                        {
+                            pruned++;
+                            trace?.Nodes.Add(new TraceNode
+                            {
+                                Path = p1,
+                                Level = level + 1,
+                                Decision = 1,
+                                ItemSortedIndex = level,
+                                ItemOriginalIndex = it.Index,
+                                Weight = w1,
+                                Value = v1,
+                                Bound = ub1,
+                                Status = "Prune",
+                                Reason = "bound<=incumbent"
+                            });
+                        }
+                    }
+                }
+            }
+
+            DFS(0, 0, 0, "P");
+
+            // Map best picks (sorted) back to original order
+            var sortedToOriginal = new int[n];
+            for (int si = 0; si < n; si++) sortedToOriginal[si] = sorted[si].Index;
+
+            var decisionOriginal = new bool[items.Count];
+            for (int si = 0; si < n; si++)
+                decisionOriginal[sortedToOriginal[si]] = bestPickSorted[si];
+
+            var taken = new List<KnapsackItem>();
+            for (int i = 0; i < items.Count; i++) if (decisionOriginal[i]) taken.Add(items[i]);
+
+            result.BestValue = bestValue;
+            result.BestWeight = bestWeight;
+            result.DecisionVector = decisionOriginal;
+            result.ItemsTaken = taken;
+            result.NodesExplored = explored;
+            result.NodesPruned = pruned;
+
+            log?.Invoke($"\r\n[B&B-Backtracking] Done. BestValue={bestValue}, BestWeight={bestWeight}, " +
+                        $"Explored={explored}, Pruned={pruned}\r\n");
+
+            return result;
+        }
     }
 }
