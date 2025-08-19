@@ -81,7 +81,7 @@ namespace LP_Solver.Models
 
             return (tableau, constraintTypes);
         }
-        public void Solve(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        public double[,] Solve(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
@@ -93,6 +93,8 @@ namespace LP_Solver.Models
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
             }
             logOutput("\r\nOptimal solution reached.\r\n");
+
+            return tableau;
         }
 
         private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType)

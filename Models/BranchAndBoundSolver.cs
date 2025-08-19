@@ -54,7 +54,7 @@ namespace LP_Solver.Models
 
                 // Solve LP relaxation at this node (display ALL iterations)
                 var (tableau,constraintTypes) = _solver.CreateTableau(simplexReady);
-                _solver.Solve(tableau,constraintTypes,log,simplexReady.NumVariables, simplexReady.Constraints.Count, simplexReady.ObjectiveType);
+                double[,] OptimalTable = _solver.Solve(tableau,constraintTypes,log,simplexReady.NumVariables, simplexReady.Constraints.Count, simplexReady.ObjectiveType);
 
                 // Extract objective value and solution
                 double nodeObj = tableau[0, tableau.GetLength(1) - 1];

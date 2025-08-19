@@ -48,8 +48,8 @@ namespace LP_Solver.Controllers
             logOutput("\r\nInitial Tableau:\r\n" +
                  _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
-            _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
-           
+           double[,] OptimalTable = _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)
@@ -62,7 +62,7 @@ namespace LP_Solver.Controllers
                 logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
 
             // Create tableau
-            var (tableau,ConstraintTypes) = _dualSolver.CreateTableau(model);
+            var (tableau, ConstraintTypes) = _dualSolver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
 
@@ -71,7 +71,8 @@ namespace LP_Solver.Controllers
                 _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
             // Solve using dual simplex
-            _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints,model.ObjectiveType);
+            double[,] OptimalTable = _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+
         }
 
         public void BranchAndBoundSolveFromInput(string input, Action<string> logOutput)

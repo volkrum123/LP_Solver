@@ -77,7 +77,7 @@ namespace LP_Solver.Models
 
             return (tableau, constraintTypes);
         }
-        public void SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
@@ -111,12 +111,13 @@ namespace LP_Solver.Models
             {
                 logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
                 var primalSolver = new SimplexSolver();
-                primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
+                tableau = primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
             }
             else
             {
                 logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
             }
+            return tableau;
         }
 
         private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis)
