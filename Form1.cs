@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using LP_Solver.Controllers;
 
@@ -23,30 +25,55 @@ namespace LP_Solver
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
             comboBox1.Items.Add("Branch & Bound Knapsack");
-
             comboBox1.SelectedIndex = 0;
+
+            // Optional: better alignment for ASCII output
+            txtOutput.Font = new System.Drawing.Font("Consolas", 9f);
+            txtOutput.WordWrap = false;
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (comboBox1.SelectedIndex == 0)
-            {
-                return;
-            }
+            if (comboBox1.SelectedIndex == 0) return;
+
             switch (comboBox1.SelectedIndex)
             {
-                case 1:
+                case 1: // Primal Simplex
                     txtOutput.Clear();
                     _controller.SolveFromInput(txtInput.Text, AppendOutput);
                     break;
-                case 2:
+
+                case 2: // Dual Simplex
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
-                case 6:
+
+                case 6: // Branch & Bound Knapsack (LP-style expected)
                     txtOutput.Clear();
                     try
                     {
+                        // Expect LP/IP-style like:
+                        // max +2 +2 +3 +5 +2 +4
+                        // +11 +8 +6 +14 +10 +10 <= 40
+                        // bin bin bin bin bin bin
+                        bool hasObj = Regex.IsMatch(txtInput.Text, @"\b(max|min)\b", RegexOptions.IgnoreCase);
+                        bool hasCap = Regex.IsMatch(txtInput.Text, @"<=", RegexOptions.IgnoreCase);
+                        bool hasBin = Regex.IsMatch(txtInput.Text, @"\bbin\b", RegexOptions.IgnoreCase);
+
+                        if (!(hasObj && hasCap && hasBin))
+                        {
+                            MessageBox.Show(
+                                "Please use LP/IP-style input for Branch & Bound Knapsack:\n\n" +
+                                "max +2 +2 +3 +5 +2 +4\n" +
+                                "+11 +8 +6 +14 +10 +10 <= 40\n" +
+                                "bin bin bin bin bin bin",
+                                "Input format",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+                            return;
+                        }
+
+                        // Parse LP and solve Knapsack via B&B (your LP-style method)
                         _controller.SolveKnapsackFromInput(txtInput.Text, AppendOutput);
                     }
                     catch (Exception ex)
@@ -54,9 +81,13 @@ namespace LP_Solver
                         AppendOutput($"Error: {ex.Message}\r\n");
                     }
                     break;
+
+                    // (cases 3,4,5 not implemented yet)
             }
+
             comboBox1.SelectedIndex = 0;
         }
+
         private void AppendOutput(string text)
         {
             txtOutput.AppendText(text);
@@ -71,12 +102,8 @@ namespace LP_Solver
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    // Read file content
                     string lpModelText = File.ReadAllText(openFileDialog.FileName);
-
-                    // Put it into the txtInput box for preview
                     txtInput.Text = lpModelText;
-
                 }
             }
         }
@@ -87,16 +114,19 @@ namespace LP_Solver
             {
                 saveFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
                 saveFileDialog.Title = "Save Output As";
-                saveFileDialog.FileName = "LP_Output.txt"; // default filename
+                saveFileDialog.FileName = "LP_Output.txt";
 
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     File.WriteAllText(saveFileDialog.FileName, txtOutput.Text);
-                    MessageBox.Show("Output saved successfully!", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Output saved successfully!", "Saved",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
 
-        
+        private void panel1_Paint(object sender, PaintEventArgs e)
+        {
+        }
     }
 }

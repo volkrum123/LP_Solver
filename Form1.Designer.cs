@@ -56,7 +56,6 @@
             txtInput.ScrollBars = ScrollBars.Vertical;
             txtInput.Size = new Size(743, 150);
             txtInput.TabIndex = 1;
-           
             // 
             // txtOutput
             // 
@@ -110,6 +109,7 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(250, 566);
             panel1.TabIndex = 7;
+            panel1.Paint += panel1_Paint;
             // 
             // label2
             // 
