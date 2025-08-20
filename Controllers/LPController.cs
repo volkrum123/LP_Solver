@@ -195,12 +195,19 @@ namespace LP_Solver.Controllers
                 .Select(i => new KnapsackItem(i, weights[i], values[i]))
                 .ToList();
 
-            var trace = new KnapsackTrace();
-            var res = KnapsackBBSolver.SolveBacktracking(items, capacity, logOutput, trace);
+            
 
             // ---- Visuals & summary ----
+            RenderKnapsackCanonical(values, weights, capacity, logOutput);
+
+            var trace = new KnapsackTrace();
+            var res = KnapsackBBSolver.SolveBacktracking(items, capacity, _ => { }, trace);
+
             RenderAsciiRatioTable(trace, logOutput);
-            RenderBnbBlocks(trace, logOutput);
+            RenderBnbIterationTable(trace, logOutput);
+            //RenderBnbBlocks(trace, logOutput);
+
+            // ---- Knapsack Result ----
 
             var dv = string.Join(", ", res.DecisionVector.Select(b => b ? "1" : "0"));
             logOutput($"\r\n=== Knapsack Result ===\r\n");
@@ -223,68 +230,23 @@ namespace LP_Solver.Controllers
             return KnapsackBBSolver.Solve(list, capacity, logOutput);
         }
 
-        // ---- helper parser for knapsack text input
-        private static void ParseKnapsack(
-            string input,
-            out List<(int weight, int value)> items,
-            out int capacity)
-        {
-            items = new List<(int, int)>();
-            capacity = 0;
-
-            if (string.IsNullOrWhiteSpace(input))
-                throw new ArgumentException("Knapsack input is empty.");
-
-            // 1) capacity = N
-            var capMatch = System.Text.RegularExpressions.Regex.Match(
-                input, @"capacity\s*=\s*(-?\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!capMatch.Success)
-                throw new ArgumentException("Missing 'capacity = N' line.");
-            capacity = int.Parse(capMatch.Groups[1].Value);
-
-            // 2) (w,v) pairs anywhere
-            foreach (System.Text.RegularExpressions.Match m in
-                     System.Text.RegularExpressions.Regex.Matches(
-                         input, @"\(\s*(-?\d+)\s*[,;]\s*(-?\d+)\s*\)"))
-            {
-                items.Add((int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value)));
-            }
-
-            // 3) Bare pairs per line: "w v" or "w,v"
-            if (items.Count == 0)
-            {
-                foreach (var raw in input.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var ln = raw.Trim();
-                    if (ln.ToLower().StartsWith("capacity")) continue;
-
-                    var mm = System.Text.RegularExpressions.Regex.Match(
-                        ln, @"^\s*(-?\d+)\s*[,;\s]\s*(-?\d+)\s*$");
-                    if (mm.Success)
-                        items.Add((int.Parse(mm.Groups[1].Value), int.Parse(mm.Groups[2].Value)));
-                }
-            }
-
-            if (items.Count == 0)
-                throw new ArgumentException("No item pairs found. Use '(weight,value)' or 'weight value' per line.");
-        }
-
         // =============== ASCII TABLE: Ratio Test =================
         private static void RenderAsciiRatioTable(KnapsackTrace trace, Action<string> log)
         {
+            var culture = CultureInfo.InvariantCulture;
+
             var headers = new[] { "Item", "w", "v", "v/w", "rank" };
             var rows = trace.RatioTable
                 .Select(r => new[]
                 {
-                    $"x{r.originalIndex + 1}",
-                    r.weight.ToString(),
-                    r.value.ToString(),
-                    r.ratio.ToString("0.###"),
-                    r.rank.ToString()
+            $"x{r.originalIndex + 1}",
+            r.weight.ToString(culture),
+            r.value.ToString(culture),
+            r.ratio.ToString("0.000", culture),
+            r.rank.ToString(culture)
                 })
                 .ToList();
 
-            // compute column widths
             var widths = new int[headers.Length];
             for (int j = 0; j < headers.Length; j++)
             {
@@ -294,7 +256,7 @@ namespace LP_Solver.Controllers
 
             string Sep(char left, char mid, char right, char fill)
             {
-                var parts = widths.Select(w => new string(fill, w + 2)); // +2 padding
+                var parts = widths.Select(w => new string(fill, w + 2));
                 return left + string.Join(mid.ToString(), parts) + right + "\r\n";
             }
 
@@ -307,50 +269,91 @@ namespace LP_Solver.Controllers
             log(Sep('+', '+', '+', '-'));
         }
 
-        // =============== Block-style B&B progress (stacked lines) ===============
-        private static void RenderBnbBlocks(KnapsackTrace trace, Action<string> log)
+        // =============== Canonical Form =================
+        private static void RenderKnapsackCanonical(
+            IList<int> values, IList<int> weights, int capacity, Action<string> log)
         {
-            log("\r\n=== Branch & Bound Progress ===\r\n");
+            string ObjTerms() =>
+                string.Join(" + ", Enumerable.Range(0, values.Count).Select(i => $"{values[i]}*x{i + 1}"));
 
-            // Group nodes by Path, preserving first-seen order
-            var order = new List<string>();
-            var groups = new Dictionary<string, List<TraceNode>>();
+            string CapTerms() =>
+                string.Join(" + ", Enumerable.Range(0, weights.Count).Select(i => $"{weights[i]}*x{i + 1}"));
 
-            foreach (var n in trace.Nodes)
+            log("\r\n=== Canonical Form (Knapsack IP) ===\r\n");
+            log($"Maximize: z = {ObjTerms()}\r\n");
+            log("Subject to:\r\n");
+            log($"  {CapTerms()} <= {capacity}\r\n");
+            log($"Binary: x1..x{values.Count} ∈ {{0,1}}\r\n");
+        }
+        private static void RenderBnbIterationTable(KnapsackTrace trace, Action<string> log)
+        {
+            var culture = CultureInfo.InvariantCulture;
+
+            // Build rows in insertion order (the order you appended TraceNode)
+            var rows = new List<string[]>();
+            int step = 1;
+
+            foreach (var e in trace.Nodes)
             {
-                if (!groups.TryGetValue(n.Path, out var list))
+                // Pretty label: P → Sub-p, ".0"→"1", ".1"→"2"
+                string Label(string path)
                 {
-                    list = new List<TraceNode>();
-                    groups[n.Path] = list;
-                    order.Add(n.Path);
+                    if (path == "P") return "Sub-p";
+                    var steps = path.Split('.').Skip(1).Select(s => s == "0" ? "1" : "2");
+                    return "Sub-p" + string.Join(".", steps);
                 }
-                list.Add(n);
-            }
 
-            string Label(string path)
-            {
-                if (path == "P") return "Sub-p";
-                // map ".0" -> "1" (exclude-first), ".1" -> "2"
-                var steps = path.Split('.').Skip(1).Select(s => s == "0" ? "1" : "2");
-                return "Sub-p" + string.Join(".", steps);
-            }
+                string path = Label(e.Path);
+                string item =
+                    e.ItemOriginalIndex < 0 ? "-" :
+                    $"x{e.ItemOriginalIndex + 1}";
+                string decision =
+                    e.Decision == null ? "-" :
+                    (e.Decision == 1 ? "1" : "0");
 
-
-            foreach (var path in order)
-            {
-                var entries = groups[path];
-                for (int i = 0; i < entries.Count; i++)
+                rows.Add(new[]
                 {
-                    var e = entries[i];
-                    string indent = (i == 0) ? "" : "  ";
-                    string item = e.ItemOriginalIndex >= 0 ? $"x{e.ItemOriginalIndex + 1}" : "-";
-                    string dec = e.Decision == null ? "" : (e.Decision == 1 ? "=1" : "=0");
-                    string bound = e.Bound.ToString("0.###");
-                    string reason = string.IsNullOrWhiteSpace(e.Reason) ? "" : $" ({e.Reason})";
-
-                    log($"{indent}{Label(path)}: {item}{dec}  w={e.Weight}, v={e.Value}, bound={bound}  {e.Status}{reason}\r\n");
-                }
+            step.ToString(culture),
+            path,
+            item,
+            decision,
+            e.Weight.ToString(culture),
+            e.Value.ToString(culture),
+            e.Bound.ToString("0.000", culture),
+            e.Status,
+            string.IsNullOrWhiteSpace(e.Reason) ? "" : e.Reason
+        });
+                step++;
             }
+
+            // Column headers
+            var headers = new[] { "#", "Path", "Item", "Dec", "w", "v", "UB", "Status", "Reason" };
+
+            // Compute widths
+            var widths = new int[headers.Length];
+            for (int j = 0; j < headers.Length; j++)
+            {
+                widths[j] = headers[j].Length;
+            }
+            foreach (var r in rows)
+            {
+                for (int j = 0; j < r.Length; j++)
+                    widths[j] = Math.Max(widths[j], r[j].Length);
+            }
+
+            string Sep(char left, char mid, char right, char fill)
+            {
+                var parts = widths.Select(w => new string(fill, w + 2));
+                return left + string.Join(mid.ToString(), parts) + right + "\r\n";
+            }
+
+            log("\r\n=== Branch & Bound Iterations ===\r\n");
+            log(Sep('+', '+', '+', '-'));
+            log("| " + string.Join(" | ", headers.Select((h, j) => h.PadRight(widths[j]))) + " |\r\n");
+            log(Sep('+', '+', '+', '-'));
+            foreach (var r in rows)
+                log("| " + string.Join(" | ", r.Select((c, j) => c.PadRight(widths[j]))) + " |\r\n");
+            log(Sep('+', '+', '+', '-'));
         }
     }
 }
