@@ -18,16 +18,7 @@ namespace LP_Solver.Models
             public int Depth;
         }
 
-        /// <summary>
-        /// Branch & Bound using Dual Simplex for every LP relaxation.
-        /// Satisfies assignment requirements:
-        ///  - Display Canonical Form at root and for every sub-problem (node)
-        ///  - Backtracking (DFS stack)
-        ///  - Create and explore all branching sub-problems (both children at every branch)
-        ///  - Fathom (prune) nodes by infeasibility, bound, or integrality
-        ///  - Display all table iterations for every sub-problem (delegated to DuelSimplexSolver logging)
-        ///  - Display best candidate (incumbent)
-        /// </summary>
+   
         public void SolveBranchAndBound(LPModel root, Action<string> log)
         {
             // If no integer set specified, default to all decision variables.
