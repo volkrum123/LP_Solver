@@ -14,6 +14,7 @@ namespace LP_Solver.Controllers
         private DuelSimplexSolver _dualSolver;
         private BranchAndBoundSolver _bbSolver;
         private CanonicalForm _canonicalForm;
+        private RevisedPrimal _revised;
 
 
         public LPController()
@@ -23,6 +24,7 @@ namespace LP_Solver.Controllers
             _dualSolver = new DuelSimplexSolver();
             _bbSolver = new BranchAndBoundSolver();
             _canonicalForm = new CanonicalForm();
+            _revised = new RevisedPrimal();
         }
 
         public void SolveFromInput(string input, Action<string> logOutput)
@@ -50,6 +52,21 @@ namespace LP_Solver.Controllers
 
            double[,] OptimalTable = _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
 
+        }
+
+        public void RevisedSolveFromInput(string input, Action<string> logOutput)
+        {
+            var model = _parser.Parse(input);
+            logOutput($"Objective: {model.ObjectiveType}\r\n");
+            logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
+            for (int i = 0; i < model.Constraints.Count; i++)
+            {
+                logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
+            }
+            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
+            logOutput("\r\n" + canonicalForm + "\r\n");
+
+            double[] solution = _revised.Solve(model, logOutput);
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)

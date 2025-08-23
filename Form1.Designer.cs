@@ -56,7 +56,6 @@
             txtInput.ScrollBars = ScrollBars.Vertical;
             txtInput.Size = new Size(743, 150);
             txtInput.TabIndex = 1;
-           
             // 
             // txtOutput
             // 
@@ -64,7 +63,7 @@
             txtOutput.Location = new Point(284, 251);
             txtOutput.Name = "txtOutput";
             txtOutput.ReadOnly = true;
-            txtOutput.Size = new Size(743, 306);
+            txtOutput.Size = new Size(857, 327);
             txtOutput.TabIndex = 3;
             txtOutput.Text = "";
             // 
@@ -124,7 +123,7 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1085, 569);
+            ClientSize = new Size(1168, 592);
             Controls.Add(label2);
             Controls.Add(panel1);
             Controls.Add(txtOutput);

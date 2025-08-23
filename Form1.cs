@@ -18,6 +18,7 @@ namespace LP_Solver
             comboBox1.Items.Clear();
             comboBox1.Items.Add("Solve using:");
             comboBox1.Items.Add("Primal Simplex");
+            comboBox1.Items.Add("Revised Primal Simplex");
             comboBox1.Items.Add("Dual Simplex");
             comboBox1.Items.Add("Revised Primal Simplex");
             comboBox1.Items.Add("Branch & Bound Simplex");
@@ -40,6 +41,10 @@ namespace LP_Solver
                     _controller.SolveFromInput(txtInput.Text, AppendOutput);
                     break;
                 case 2:
+                    txtOutput.Clear();
+                    _controller.RevisedSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
+                case 3:
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
