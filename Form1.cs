@@ -25,6 +25,7 @@ namespace LP_Solver
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
             comboBox1.Items.Add("Branch & Bound Knapsack");
+            comboBox1.Items.Add("Nonlinear");
             comboBox1.SelectedIndex = 0;
 
             // Optional: better alignment for ASCII output
@@ -81,8 +82,18 @@ namespace LP_Solver
                         AppendOutput($"Error: {ex.Message}\r\n");
                     }
                     break;
+                case 7: // Nonlinear (Golden Section)
+                    txtOutput.Clear();
+                    try
+                    {
+                        _controller.SolveNonlinearFromInput(txtInput.Text, AppendOutput);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendOutput($"Error: {ex.Message}\r\n");
+                    }
+                    break;
 
-                    // (cases 3,4,5 not implemented yet)
             }
 
             comboBox1.SelectedIndex = 0;

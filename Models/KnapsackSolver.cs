@@ -5,8 +5,16 @@ using LP_Solver.Models;
 
 namespace LP_Solver.Solvers
 {
+    /// <summary>
+    /// Branch & Bound solvers for 0/1 Knapsack.
+    /// - Solve(...)   : Best-first (priority-queue) B&B using fractional bound.
+    /// - SolveBacktracking(...): Depth-first backtracking (explicit recursion) with the same bound.
+    /// Both record a detailed trace in KnapsackTrace for rendering.
+    /// </summary>
     internal static class KnapsackBBSolver
     {
+        // ------------------------------- Internal types -------------------------------
+
         private sealed class Node
         {
             public int Level;
@@ -14,7 +22,7 @@ namespace LP_Solver.Solvers
             public int Value;
             public double Bound;
             public bool[] Picks;
-            public string Path; // for trace
+            public string Path; // e.g. "P.0.1.0" (for trace)
 
             public Node(int n) { Picks = new bool[n]; }
             public Node(Node other)
@@ -30,13 +38,21 @@ namespace LP_Solver.Solvers
 
         private sealed class MaxPQ<T>
         {
-            private readonly List<T> _heap = new List<T>();
+            private readonly List<T> _heap = new();
             private readonly Comparison<T> _cmp;
             public int Count => _heap.Count;
             public MaxPQ(Comparison<T> cmp) => _cmp = cmp;
-            public void Push(T x) { _heap.Add(x); SiftUp(_heap.Count - 1); }
+
+            public void Push(T x)
+            {
+                _heap.Add(x);
+                SiftUp(_heap.Count - 1);
+            }
+
             public T Pop()
             {
+                if (_heap.Count == 0) throw new InvalidOperationException("Pop from empty priority queue.");
+
                 var top = _heap[0];
                 var last = _heap[_heap.Count - 1];
                 _heap[0] = last;
@@ -44,6 +60,7 @@ namespace LP_Solver.Solvers
                 if (_heap.Count > 0) SiftDown(0);
                 return top;
             }
+
             private void SiftUp(int i)
             {
                 while (i > 0)
@@ -54,6 +71,7 @@ namespace LP_Solver.Solvers
                     i = p;
                 }
             }
+
             private void SiftDown(int i)
             {
                 int n = _heap.Count;
@@ -69,33 +87,37 @@ namespace LP_Solver.Solvers
             }
         }
 
-    public static KnapsackResult Solve(
-    IList<KnapsackItem> items,
-    int capacity,
-    Action<string> log = null,
-    KnapsackTrace trace = null)
+        // ------------------------------- Best-first B&B -------------------------------
+
+        /// <summary>
+        /// Best-first Branch & Bound using a fractional (Greedy) upper bound.
+        /// Branching order is EXCLUDE (0) first, then INCLUDE (1) to match your display.
+        /// Fills trace with all node actions and returns the best solution found.
+        /// </summary>
+        public static KnapsackResult Solve(
+            IList<KnapsackItem> items,
+            int capacity,
+            Action<string> log = null,
+            KnapsackTrace trace = null)
         {
             var result = new KnapsackResult { Capacity = capacity };
             if (items == null || items.Count == 0 || capacity <= 0) return result;
 
-            // Sort by value/weight desc
+            // Sort by v/w desc (keep original indices in KnapsackItem)
             var sorted = items.OrderByDescending(it => it.Ratio).ToList();
             int n = sorted.Count;
 
-            // Trace: ratio table with rank
+            // Record ratio table (rank = 1..n)
             if (trace != null)
             {
-                var ranked = sorted
-                    .Select((it, i) => (it.Index, it.Weight, it.Value, it.Ratio, rank: 0))
-                    .OrderByDescending(x => x.Ratio)
-                    .ToList();
-                for (int i = 0; i < ranked.Count; i++)
-                    trace.RatioTable.Add((ranked[i].Index, ranked[i].Weight, ranked[i].Value, ranked[i].Ratio, i + 1));
+                for (int i = 0; i < n; i++)
+                    trace.RatioTable.Add((sorted[i].Index, sorted[i].Weight, sorted[i].Value, sorted[i].Ratio, i + 1));
             }
 
             int bestValue = 0, bestWeight = 0;
             bool[] bestPickSorted = new bool[n];
 
+            // Max-heap by Bound (higher Bound = higher priority)
             var pq = new MaxPQ<Node>((a, b) => a.Bound.CompareTo(b.Bound));
             int explored = 0, pruned = 0;
 
@@ -115,7 +137,7 @@ namespace LP_Solver.Solvers
                     else
                     {
                         int remain = capacity - totalW;
-                        if (remain > 0) bound += it.Ratio * remain;
+                        if (remain > 0) bound += it.Ratio * remain; // fractional fill
                         break;
                     }
                 }
@@ -125,6 +147,7 @@ namespace LP_Solver.Solvers
             var root = new Node(n) { Level = 0, Weight = 0, Value = 0, Path = "P" };
             root.Bound = Bound(0, 0, 0);
             pq.Push(root);
+
             log?.Invoke($"[B&B] Start: capacity={capacity}, items={n}\r\n");
             trace?.Nodes.Add(new TraceNode
             {
@@ -298,9 +321,9 @@ namespace LP_Solver.Solvers
                         Reason = "infeasible"
                     });
                 }
-            } // <-- close while loop here
+            }
 
-            // ---------------------- Build final result (after loop) -------------------
+            // ---------------------- Build final result ----------------------
             var sortedToOriginal = new int[n];
             for (int si = 0; si < n; si++) sortedToOriginal[si] = sorted[si].Index;
 
@@ -323,20 +346,27 @@ namespace LP_Solver.Solvers
             return result;
         }
 
+        // ------------------------------ DFS Backtracking B&B ------------------------------
+
+        /// <summary>
+        /// Depth-first backtracking B&B using the same fractional bound.
+        /// Branching order is EXCLUDE (0) first, then INCLUDE (1) to match your transcript.
+        /// Produces a full trace suitable for your iteration table.
+        /// </summary>
         public static KnapsackResult SolveBacktracking(
-    IList<KnapsackItem> items,
-    int capacity,
-    Action<string> log = null,
-    KnapsackTrace trace = null)
+            IList<KnapsackItem> items,
+            int capacity,
+            Action<string> log = null,
+            KnapsackTrace trace = null)
         {
             var result = new KnapsackResult { Capacity = capacity };
             if (items == null || items.Count == 0 || capacity <= 0) return result;
 
-            // Sort by ratio (value/weight) for bounding, keep original indices
+            // Sort by v/w desc (keep original indices)
             var sorted = items.OrderByDescending(it => it.Ratio).ToList();
             int n = sorted.Count;
 
-            // Trace: ratio table with rank (for your report)
+            // Ratio table (rank = 1..n)
             if (trace != null)
             {
                 for (int i = 0; i < n; i++)
@@ -344,8 +374,8 @@ namespace LP_Solver.Solvers
             }
 
             int bestValue = 0, bestWeight = 0;
-            bool[] bestPickSorted = new bool[n];   // picks in "sorted" order
-            bool[] picks = new bool[n];            // working picks (sorted order)
+            bool[] bestPickSorted = new bool[n]; // best picks in "sorted" order
+            bool[] picks = new bool[n];          // working picks (sorted order)
 
             int explored = 0, pruned = 0;
 
@@ -365,15 +395,15 @@ namespace LP_Solver.Solvers
                     else
                     {
                         int remain = capacity - totalW;
-                        if (remain > 0) bound += it.Ratio * remain; // fractional
+                        if (remain > 0) bound += it.Ratio * remain;
                         break;
                     }
                 }
                 return bound;
             }
 
-            // Root
-            var rootUB = Bound(0, 0, 0);
+            // Root node
+            double rootUB = Bound(0, 0, 0);
             log?.Invoke($"[B&B-Backtracking] Start: capacity={capacity}, items={n}\r\n");
             trace?.Nodes.Add(new TraceNode
             {
@@ -415,7 +445,7 @@ namespace LP_Solver.Solvers
 
                 var it = sorted[level];
 
-                // ---------- EXCLUDE branch first (decision = 0) ----------
+                // ---------- EXCLUDE (0) first ----------
                 {
                     string p0 = path + ".0";
                     double ub0 = Bound(level + 1, w, v);
@@ -436,8 +466,8 @@ namespace LP_Solver.Solvers
                         });
 
                         picks[level] = false;
-                        DFS(level + 1, w, v, p0);     // recurse
-                        picks[level] = false;         // backtrack (explicit)
+                        DFS(level + 1, w, v, p0);
+                        picks[level] = false; // explicit backtrack
                     }
                     else
                     {
@@ -458,7 +488,7 @@ namespace LP_Solver.Solvers
                     }
                 }
 
-                // ---------- INCLUDE branch second (decision = 1) ----------
+                // ---------- INCLUDE (1) second ----------
                 {
                     string p1 = path + ".1";
                     int w1 = w + it.Weight, v1 = v + it.Value;
@@ -486,8 +516,10 @@ namespace LP_Solver.Solvers
                         {
                             bestValue = v1;
                             bestWeight = w1;
+
+                            // snapshot current picks as best so far
                             Array.Copy(picks, bestPickSorted, n);
-                            bestPickSorted[level] = true; // include at this level
+                            bestPickSorted[level] = true; // include current
 
                             log?.Invoke($"  * Incumbent update @ {p1}: value={bestValue}, weight={bestWeight}\r\n");
                             trace?.Nodes.Add(new TraceNode
@@ -523,8 +555,8 @@ namespace LP_Solver.Solvers
                             });
 
                             picks[level] = true;
-                            DFS(level + 1, w1, v1, p1); // recurse
-                            picks[level] = false;       // backtrack (explicit)
+                            DFS(level + 1, w1, v1, p1);
+                            picks[level] = false; // backtrack
                         }
                         else
                         {

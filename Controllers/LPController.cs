@@ -355,5 +355,64 @@ namespace LP_Solver.Controllers
                 log("| " + string.Join(" | ", r.Select((c, j) => c.PadRight(widths[j]))) + " |\r\n");
             log(Sep('+', '+', '+', '-'));
         }
+        public void SolveNonlinearFromInput(string input, Action<string> log)
+        {
+            // Accept:
+            //   min f(x) = x^2 + 3*x + 2
+            //   interval [-5, 5]
+            //   tol = 1e-6
+            //
+            // Or one-line:
+            //   min x^2 on [-5,5], tol=1e-6
+
+            var txt = input.Replace("\r", " ").Replace("\n", " ").Trim();
+
+            bool isMax = Regex.IsMatch(txt, @"\bmax\b", RegexOptions.IgnoreCase);
+            // default to min if "max" not present
+            // (no need for isMin variable)
+
+            // ---- f(x) expression ----
+            var mFx = Regex.Match(txt, @"f\s*\(\s*x\s*\)\s*=\s*([^,\]\)]+)", RegexOptions.IgnoreCase);
+            string fexpr = mFx.Success ? mFx.Groups[1].Value.Trim() : null;
+            if (string.IsNullOrWhiteSpace(fexpr))
+            {
+                // fallback: "min x^2 on ..."
+                var mBare = Regex.Match(txt, @"(?:min|max)\s+(.+?)\s+(?:on|interval|\[|tol=)", RegexOptions.IgnoreCase);
+                if (mBare.Success) fexpr = mBare.Groups[1].Value.Trim();
+            }
+            if (string.IsNullOrWhiteSpace(fexpr))
+                throw new ArgumentException("Could not find f(x) expression.");
+
+            // ---- interval [a,b] ----
+            var mIv = Regex.Match(txt, @"\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]");
+            if (!mIv.Success) throw new ArgumentException("Missing interval [a,b].");
+            double a = double.Parse(mIv.Groups[1].Value, CultureInfo.InvariantCulture);
+            double b = double.Parse(mIv.Groups[2].Value, CultureInfo.InvariantCulture);
+            if (a >= b) throw new ArgumentException("Interval must satisfy a < b.");
+
+            // ---- tolerance ----
+            var mTol = Regex.Match(txt, @"tol\s*=\s*([eE0-9\.\-+]+)");
+            double tol = mTol.Success ? double.Parse(mTol.Groups[1].Value, CultureInfo.InvariantCulture) : 1e-6;
+
+            // ---- compile f ----
+            var f0 = ExpressionParser.Compile(fexpr);
+
+            // ---- canonical display ----
+            log("\r\n=== Canonical Form (Nonlinear, 1D) ===\r\n");
+            log($"{(isMax ? "Maximize" : "Minimize")}: f(x) = {fexpr}\r\n");
+            log($"Subject to: x ∈ [{a:0.000}, {b:0.000}], tol = {tol:0.000}\r\n");
+
+            // ---- solve (auto-iterations via maxIter: 0) ----
+            (double xstar, double fstar, int iters) = isMax
+                ? GoldenSectionSolver.Maximize(f0, a, b, tol, 0, log)
+                : GoldenSectionSolver.Minimize(f0, a, b, tol, 0, log);
+
+            // ---- summary ----
+            log("\r\n=== Nonlinear Result ===\r\n");
+            log($"x* = {xstar:0.000}\r\n");
+            log($"f(x*) = {fstar:0.000}\r\n");
+            log($"Iterations = {iters}\r\n");
+
+        }
     }
 }
