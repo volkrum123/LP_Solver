@@ -67,6 +67,7 @@ namespace LP_Solver.Controllers
             logOutput("\r\n" + canonicalForm + "\r\n");
 
             double[] solution = _revised.Solve(model, logOutput);
+            // revised model
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)
