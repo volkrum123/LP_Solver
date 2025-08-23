@@ -20,7 +20,6 @@ namespace LP_Solver
             comboBox1.Items.Add("Primal Simplex");
             comboBox1.Items.Add("Revised Primal Simplex");
             comboBox1.Items.Add("Dual Simplex");
-            comboBox1.Items.Add("Revised Primal Simplex");
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
             comboBox1.Items.Add("Branch & Bound Knapsack");
