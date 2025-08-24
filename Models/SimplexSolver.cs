@@ -87,7 +87,7 @@ namespace LP_Solver.Models
             int iteration = 1;
             var headers = new CanonicalForm();
 
-            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis, objectiveType))
+            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis, objectiveType, logOutput))
             {
                 logOutput($"\r\nIteration {iteration++}:\r\n");
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
@@ -97,7 +97,7 @@ namespace LP_Solver.Models
             return tableau;
         }
 
-        private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType)
+        private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType, Action<string> logOutput)
         {
             int pivotCol = -1;
             double mostNegative = 0;
@@ -141,7 +141,12 @@ namespace LP_Solver.Models
                     }
                 }
             }
-            if (pivotRow == -1) throw new Exception("Unbounded solution");
+            // Unbounded solution
+            if (pivotRow == -1)
+            {
+                logOutput("\r\nUnbounded Optimal solution reached.\r\n");
+                return false; // Stop iterations
+            }
             basis[pivotRow - 1] = pivotCol;
 
             double pivotElement = tableau[pivotRow, pivotCol];

@@ -83,7 +83,7 @@ namespace LP_Solver.Models
             int iteration = 1;
             var headers = new CanonicalForm();
 
-            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis))
+            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput))
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
@@ -120,7 +120,7 @@ namespace LP_Solver.Models
             return tableau;
         }
 
-        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis)
+        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis, Action<string> logOutput)
         {
             // Step 1: Pivot row → most negative RHS
             int pivotRow = -1;
@@ -158,10 +158,8 @@ namespace LP_Solver.Models
 
             if (pivotCol == -1)
             {
-                Console.WriteLine("Pivot row coefficients:");
-                for (int j = 0; j < numCols - 1; j++)
-                    Console.WriteLine($"col {j}: {tableau[pivotRow, j]}");
-                throw new Exception("Dual simplex: no valid pivot column (problem may be infeasible).");
+                logOutput("\r\n Infeasible solution detected.\r\n");
+                return false;
             }
 
             basis[pivotRow - 1] = pivotCol;
