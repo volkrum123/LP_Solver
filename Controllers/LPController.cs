@@ -15,6 +15,7 @@ namespace LP_Solver.Controllers
         private BranchAndBoundSolver _bbSolver;
         private CanonicalForm _canonicalForm;
         private RevisedPrimal _revised;
+        private CuttingPlaneSolver _cuttingPlaneSolver;
 
 
         public LPController()
@@ -89,7 +90,32 @@ namespace LP_Solver.Controllers
             }
             _bbSolver.SolveBranchAndBound(model, logOutput);
         }
+        public void CuttingPlaneSolveFromInput(string input, Action<string> logOutput)  // Keep as internal
+        {
+            var model = _parser.Parse(input);
 
+            // Ensure IntegerIndices is not null
+            if (model.IntegerIndices == null)
+            {
+                model.IntegerIndices = new List<int>();
+            }
+
+            // If no integer variables specified, use all variables as integer
+            if (model.IntegerIndices.Count == 0)
+            {
+                logOutput("No integer variables specified. Using all variables as integer.\n");
+                for (int i = 0; i < model.ObjectiveCoefficients.Count; i++)
+                    model.IntegerIndices.Add(i);
+            }
+
+            var result = _cuttingPlaneSolver.Solve(model, logOutput);
+
+            // You can access the result object for further processing if needed
+            if (result.SolutionFound)
+            {
+                logOutput($"Optimal objective value: {result.ObjectiveValue}\n");
+            }
+        }
         public void LogModelAndStandardform(LPModel model, Action<string> logOutput)
         {
             logOutput($"Objective: {model.ObjectiveType}\r\n");
