@@ -31,17 +31,7 @@ namespace LP_Solver.Controllers
         {
             // Basic model
             var model = _parser.Parse(input);
-            logOutput($"Objective: {model.ObjectiveType}\r\n");
-            logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
-            for(int i = 0; i < model.Constraints.Count; i++)
-            {
-                logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
-            }
-
-            //Canonical From
-            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
-            logOutput("\r\n" + canonicalForm + "\r\n");
-
+            LogModelAndStandardform(model, logOutput );
             //Initial Tablue
             
             var (tableau, ConstraintTypes) = _solver.CreateTableau(model);
@@ -57,27 +47,23 @@ namespace LP_Solver.Controllers
         public void RevisedSolveFromInput(string input, Action<string> logOutput)
         {
             var model = _parser.Parse(input);
-            logOutput($"Objective: {model.ObjectiveType}\r\n");
-            logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
-            for (int i = 0; i < model.Constraints.Count; i++)
-            {
-                logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
-            }
-            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
-            logOutput("\r\n" + canonicalForm + "\r\n");
+           
 
             double[] solution = _revised.Solve(model, logOutput);
-            // revised model
+            
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)
         {
             var model = _parser.Parse(input);
-
+            LogModelAndStandardform(model, logOutput);
             logOutput($"Objective: {model.ObjectiveType}\r\n");
             logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
             for (int i = 0; i < model.Constraints.Count; i++)
                 logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
+
+            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
+            logOutput("\r\n" + canonicalForm + "\r\n");
 
             // Create tableau
             var (tableau, ConstraintTypes) = _dualSolver.CreateTableau(model);
@@ -102,6 +88,42 @@ namespace LP_Solver.Controllers
                 for (int i = 0; i < model.ObjectiveCoefficients.Count; i++) model.IntegerIndices.Add(i);
             }
             _bbSolver.SolveBranchAndBound(model, logOutput);
+        }
+
+        public void LogModelAndStandardform(LPModel model, Action<string> logOutput)
+        {
+            logOutput($"Objective: {model.ObjectiveType}\r\n");
+            logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
+            for (int i = 0; i < model.Constraints.Count; i++)
+            {
+                logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
+            }
+            // Variables (bounds, type, integer/binary)
+            for (int i = 0; i < model.Variables.Count; i++)
+            {
+                var v = model.Variables[i];
+
+                // Determine type string
+                string typeStr = v.Type switch
+                {
+                    VariableType.Continuous => "Continuous",
+                    VariableType.Integer => "Integer",
+                    VariableType.Binary => "Binary",
+                    _ => "Unknown"
+                };
+
+                // Determine bounds string
+                string bounds;
+                if (double.IsPositiveInfinity(v.UpperBound))
+                    bounds = $"{v.LowerBound} ≤ x{i + 1}";
+                else
+                    bounds = $"{v.LowerBound} ≤ x{i + 1} ≤ {v.UpperBound}";
+
+                logOutput($"Variable x{i + 1}: Type={typeStr}, Bounds: {bounds}\r\n");
+            }
+            //Canonical From
+            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
+            logOutput("\r\n" + canonicalForm + "\r\n");
         }
     }
 }
