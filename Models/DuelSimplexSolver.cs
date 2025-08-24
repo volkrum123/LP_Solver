@@ -158,7 +158,7 @@ namespace LP_Solver.Models
 
             if (pivotCol == -1)
             {
-                logOutput("\r\n Infeasible solution detected.\r\n");
+                logOutput("\r\n Solution is Infeasable.\r\n");
                 return false;
             }
 
@@ -179,7 +179,6 @@ namespace LP_Solver.Models
                 for (int j = 0; j < numCols; j++)
                     tableau[i, j] -= factor * tableau[pivotRow, j];
             }
-
             return true;
         }
        

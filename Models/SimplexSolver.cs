@@ -93,8 +93,8 @@ namespace LP_Solver.Models
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
             }
             logOutput("\r\nOptimal solution reached.\r\n");
-
             return tableau;
+
         }
 
         private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType, Action<string> logOutput)
@@ -144,7 +144,7 @@ namespace LP_Solver.Models
             // Unbounded solution
             if (pivotRow == -1)
             {
-                logOutput("\r\nUnbounded Optimal solution reached.\r\n");
+                logOutput("\r\nSolution is Unbounded.\r\n");
                 return false; // Stop iterations
             }
             basis[pivotRow - 1] = pivotCol;
