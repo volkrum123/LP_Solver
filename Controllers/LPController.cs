@@ -58,14 +58,7 @@ namespace LP_Solver.Controllers
         {
             var model = _parser.Parse(input);
             LogModelAndStandardform(model, logOutput);
-            logOutput($"Objective: {model.ObjectiveType}\r\n");
-            logOutput($"Objective Coeffs: {string.Join(", ", model.ObjectiveCoefficients)}\r\n");
-            for (int i = 0; i < model.Constraints.Count; i++)
-                logOutput($"Constraint {i + 1}: {model.Constraints[i]}\r\n");
-
-            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
-            logOutput("\r\n" + canonicalForm + "\r\n");
-
+           
             // Create tableau
             var (tableau, ConstraintTypes) = _dualSolver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
