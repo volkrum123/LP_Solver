@@ -1,40 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Globalization;
+using System.Linq;
 
 namespace LP_Solver.Models
 {
     internal static class GoldenSectionSolver
     {
         /// <summary>
-        /// Minimize f on [a,b] (assumes unimodal).
-        /// If maxIter <= 0, it is computed from (b-a) and tol.
-        /// Prints an iteration table with all values rounded to 3 dp (culture-invariant).
+        /// Minimize f on [a,b] (unimodal). Logs one unified iteration table using CanonicalForm.TableauToStringCustom.
         /// </summary>
         public static (double xstar, double fstar, int iters) Minimize(
             Func<double, double> f, double a, double b,
             double tol, int maxIter,
             Action<string> log = null)
         {
-            if (a > b) { var tmp = a; a = b; b = tmp; }
+            if (a > b) { var t = a; a = b; b = t; }
             if (tol <= 0) tol = 1e-6;
 
-            // If user didn't specify a cap, compute one from interval & tolerance.
+            // If user didn't specify a cap, compute a sensible one from interval & tolerance
             if (maxIter <= 0)
             {
                 const double invPhi = 0.6180339887498949; // 1/phi
                 double L0 = Math.Abs(b - a);
                 int kNeeded = (int)Math.Ceiling(Math.Log(tol / L0) / Math.Log(invPhi));
                 if (kNeeded < 1) kNeeded = 1;
-                maxIter = kNeeded + 5; // small safety margin
+                maxIter = kNeeded + 5;
             }
 
             // Golden-section constants
             double phi = (1.0 + Math.Sqrt(5.0)) / 2.0; // ~1.618
-            double r = 2.0 - phi;                      // ~0.382
+            double r = 2.0 - phi;                    // ~0.382
             double inv = 1.0 - r;                      // ~0.618
 
             // Initial interior points
@@ -42,18 +38,10 @@ namespace LP_Solver.Models
             double d = a + inv * (b - a);
             double fc = f(c), fd = f(d);
 
-            log?.Invoke("\r\n=== Golden-Section Iterations ===\r\n");
-            log?.Invoke("+----+----------+----------+----------+----------+----------+----------+\r\n");
-            log?.Invoke("| k  | a        | b        | c        | d        | f(c)     | f(d)     |\r\n");
-            log?.Invoke("+----+----------+----------+----------+----------+----------+----------+\r\n");
-
+            // Collect rows for pretty table (k, a, b, c, d, f(c), f(d))
+            var rows = new List<(double a, double b, double c, double d, double fc, double fd)>();
             int k = 0;
-            void Row()
-            {
-                log?.Invoke(FormattableString.Invariant(
-                    $"| {k,2} | {a,8:0.000} | {b,8:0.000} | {c,8:0.000} | {d,8:0.000} | {fc,8:0.000} | {fd,8:0.000} |\r\n"));
-            }
-            Row();
+            rows.Add((a, b, c, d, fc, fd));
 
             // Main loop
             while ((b - a) > tol && k < maxIter)
@@ -69,36 +57,52 @@ namespace LP_Solver.Models
                     d = a + inv * (b - a); fd = f(d);
                 }
                 k++;
-                Row();
+                rows.Add((a, b, c, d, fc, fd));
             }
 
             double xstar = 0.5 * (a + b);
             double fstar = f(xstar);
 
-            log?.Invoke("+----+----------+----------+----------+----------+----------+----------+\r\n");
-            // 3 dp here too (and invariant)
-            log?.Invoke(FormattableString.Invariant(
-                $"Result: x* = {xstar:0.000}, f(x*) = {fstar:0.000}\r\n"));
+            // Pretty, consistent table with 3dp using CanonicalForm.TableauToStringCustom
+            if (log != null)
+            {
+                var cf = new CanonicalForm();
+                var colHeaders = new[] { "a", "b", "c", "d", "f(c)", "f(d)" };
+                var rowHeaders = Enumerable.Range(0, rows.Count).Select(i => $"k{i}").ToArray();
+
+                var T = new double[rows.Count, colHeaders.Length];
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    T[i, 0] = rows[i].a;
+                    T[i, 1] = rows[i].b;
+                    T[i, 2] = rows[i].c;
+                    T[i, 3] = rows[i].d;
+                    T[i, 4] = rows[i].fc;
+                    T[i, 5] = rows[i].fd;
+                }
+
+                log("\r\n" + cf.TableauToStringCustom(
+                    T, colHeaders, rowHeaders, title: "Golden-Section Iterations:"));
+
+                log(FormattableString.Invariant(
+                    $"\r\nResult: x* = {Math.Round(xstar, 3):0.###}, f(x*) = {Math.Round(fstar, 3):0.###}\r\n"));
+            }
 
             return (xstar, fstar, k);
         }
 
         /// <summary>
         /// Maximize f on [a,b] by minimizing -f (assumes unimodal).
-        /// Prints the same iteration table as Minimize but for -f; the final f* is restored.
+        /// Prints the same iteration table style; final f* is restored.
         /// </summary>
         public static (double xstar, double fstar, int iters) Maximize(
             Func<double, double> f, double a, double b,
             double tol, int maxIter,
             Action<string> log = null)
         {
-            log?.Invoke("\r\n[Note] Maximization is performed by minimizing -f(x). " +
-                        "Iteration table shows values of -f at c and d.\r\n");
-
-            var (x, negf, k) = Minimize(x0 => -f(x0), a, b, tol, maxIter, log);
-            return (x, -negf, k);
+            log?.Invoke("\r\n[Note] Maximization is performed by minimizing -f(x).\r\n");
+            var (x, negf, it) = Minimize(x0 => -f(x0), a, b, tol, maxIter, log);
+            return (x, -negf, it);
         }
     }
 }
-
-

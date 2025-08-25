@@ -1,19 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using LP_Solver.Models;
 
-namespace LP_Solver.Solvers
+namespace LP_Solver.Models
 {
-    /// <summary>
-    /// Branch & Bound solvers for 0/1 Knapsack.
-    /// - Solve(...)   : Best-first (priority-queue) B&B using fractional bound.
-    /// - SolveBacktracking(...): Depth-first backtracking (explicit recursion) with the same bound.
-    /// Both record a detailed trace in KnapsackTrace for rendering.
-    /// </summary>
     internal static class KnapsackBBSolver
     {
-        // ------------------------------- Internal types -------------------------------
+        // ====================== Internal types ======================
 
         private sealed class Node
         {
@@ -38,7 +31,7 @@ namespace LP_Solver.Solvers
 
         private sealed class MaxPQ<T>
         {
-            private readonly List<T> _heap = new();
+            private readonly List<T> _heap = new List<T>();
             private readonly Comparison<T> _cmp;
             public int Count => _heap.Count;
             public MaxPQ(Comparison<T> cmp) => _cmp = cmp;
@@ -87,18 +80,13 @@ namespace LP_Solver.Solvers
             }
         }
 
-        // ------------------------------- Best-first B&B -------------------------------
+        // ====================== Best-first B&B ======================
 
-        /// <summary>
-        /// Best-first Branch & Bound using a fractional (Greedy) upper bound.
-        /// Branching order is EXCLUDE (0) first, then INCLUDE (1) to match your display.
-        /// Fills trace with all node actions and returns the best solution found.
-        /// </summary>
         public static KnapsackResult Solve(
             IList<KnapsackItem> items,
             int capacity,
-            Action<string> log = null,
-            KnapsackTrace trace = null)
+            Action<string>? log = null,
+            KnapsackTrace? trace = null)
         {
             var result = new KnapsackResult { Capacity = capacity };
             if (items == null || items.Count == 0 || capacity <= 0) return result;
@@ -190,7 +178,7 @@ namespace LP_Solver.Solvers
 
                 var item = sorted[node.Level];
 
-                // ---------------- EXCLUDE branch FIRST (decision = 0) ----------------
+                // ====================== EXCLUDE branch FIRST (decision = 0) ======================
                 var without = new Node(node)
                 {
                     Level = node.Level + 1,
@@ -234,7 +222,7 @@ namespace LP_Solver.Solvers
                     });
                 }
 
-                // ---------------- INCLUDE branch SECOND (decision = 1) ---------------
+                // ====================== INCLUDE branch SECOND (decision = 1) ======================
                 var with = new Node(node)
                 {
                     Level = node.Level + 1,
@@ -323,7 +311,7 @@ namespace LP_Solver.Solvers
                 }
             }
 
-            // ---------------------- Build final result ----------------------
+            // ====================== Build final result ======================
             var sortedToOriginal = new int[n];
             for (int si = 0; si < n; si++) sortedToOriginal[si] = sorted[si].Index;
 
@@ -346,18 +334,13 @@ namespace LP_Solver.Solvers
             return result;
         }
 
-        // ------------------------------ DFS Backtracking B&B ------------------------------
+        // ====================== DFS Backtracking B&B ======================
 
-        /// <summary>
-        /// Depth-first backtracking B&B using the same fractional bound.
-        /// Branching order is EXCLUDE (0) first, then INCLUDE (1) to match your transcript.
-        /// Produces a full trace suitable for your iteration table.
-        /// </summary>
         public static KnapsackResult SolveBacktracking(
-            IList<KnapsackItem> items,
+            IList<KnapsackItem> items, 
             int capacity,
-            Action<string> log = null,
-            KnapsackTrace trace = null)
+            Action<string>? log = null, 
+            KnapsackTrace? trace = null)
         {
             var result = new KnapsackResult { Capacity = capacity };
             if (items == null || items.Count == 0 || capacity <= 0) return result;

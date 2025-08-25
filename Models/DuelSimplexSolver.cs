@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,24 +10,25 @@ namespace LP_Solver.Models
 {
     internal class DuelSimplexSolver
     {
-        public (double[,],List<string>) CreateTableau(LPModel model)
+        public (double[,], List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the dual simplex simplex.
         {
+            //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
-            int width = numVariables + numConstraints + 1; // variables + slack/surplus + RHS
+            int width = numVariables + numConstraints + 1;
             int height = numConstraints + 1;
-
             double[,] tableau = new double[height, width];
             var constraintTypes = new List<string>();
 
-            // Objective function (row 0)
+            // Converts the Objective coefficents to negative values if it is a Max and min model.
             for (int j = 0; j < numVariables; j++)
             {
                 double coeff = model.ObjectiveCoefficients[j];
                 tableau[0, j] = model.ObjectiveType.ToLower() == "min" ? -coeff : -coeff;
             }
 
-            // Constraints
+
+            // Converts the constraints to their standard form by adding slack or surplus variables
             for (int i = 0; i < numConstraints; i++)
             {
                 string constraint = model.Constraints[i];
@@ -76,21 +78,22 @@ namespace LP_Solver.Models
 
             return (tableau, constraintTypes);
         }
-        public void SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)// The method used to execute the dual simplex.
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
+            var headers = new CanonicalForm();
 
-            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis))
+            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput)) // Calls the iteration method to perform dual logic.
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
-                logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes)); // Labels rows and columns with headers
             }
 
             logOutput("\r\nDual simplex phase completed.\r\n");
-            logOutput(TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+            logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
 
-            // Check for primal optimality
+            // Check if the last dual iteration is optimal or not by seeinf if their is negative values in a Max model and positive values in a min model
             bool primalOptimal = true;
             for (int j = 0; j < numVariables; j++)
             {
@@ -104,22 +107,23 @@ namespace LP_Solver.Models
                 }
             }
 
-            // If not optimal, call primal simplex
+            // If the dual table is not optimal then it executes the primal simplex method to get the optimal table
             if (!primalOptimal)
             {
                 logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
                 var primalSolver = new SimplexSolver();
-                primalSolver.Solve(tableau, objectiveType, logOutput, numVariables, numConstraints);
+                tableau = primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
             }
             else
             {
                 logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
             }
+            return tableau;
         }
 
-        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis)
+        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis, Action<string> logOutput)
         {
-            // Step 1: Pivot row → most negative RHS
+            // gets the Pivot row by selecting the most negative RHS value.
             int pivotRow = -1;
             double minRHS = 1e-9;
 
@@ -135,7 +139,7 @@ namespace LP_Solver.Models
 
             if (pivotRow == -1) return false; // All RHS ≥ 0 → done
 
-            // Step 2: Pivot column → choose negative entries in pivot row
+            // Gets the Pivot column by dividing the 
             int pivotCol = -1;
             double minRatio = double.MaxValue;
 
@@ -155,10 +159,8 @@ namespace LP_Solver.Models
 
             if (pivotCol == -1)
             {
-                Console.WriteLine("Pivot row coefficients:");
-                for (int j = 0; j < numCols - 1; j++)
-                    Console.WriteLine($"col {j}: {tableau[pivotRow, j]}");
-                throw new Exception("Dual simplex: no valid pivot column (problem may be infeasible).");
+                logOutput("\r\n Solution is Infeasable.\r\n");
+                return false;
             }
 
             basis[pivotRow - 1] = pivotCol;
@@ -178,54 +180,8 @@ namespace LP_Solver.Models
                 for (int j = 0; j < numCols; j++)
                     tableau[i, j] -= factor * tableau[pivotRow, j];
             }
-
             return true;
         }
 
-        public string TableauToString(double[,] tableau, int numVariables, int numConstraints, List<string>? constraintTypes = null)
-        {
-            int rows = tableau.GetLength(0);
-            int cols = tableau.GetLength(1);
-
-            // Column headers: x1,x2,...,slack/surplus, RHS
-            var colHeaders = new List<string>();
-            for (int i = 0; i < numVariables; i++)
-                colHeaders.Add("x" + (i + 1));
-
-            for (int i = 0; i < numConstraints; i++)
-            {
-                // Use constraintTypes list if provided
-                if (constraintTypes != null && constraintTypes[i] == ">=")
-                    colHeaders.Add("e" + (i + 1)); // surplus variable
-                else
-                    colHeaders.Add("s" + (i + 1)); // slack variable
-            }
-
-            colHeaders.Add("RHS");
-
-            var sb = new StringBuilder();
-
-            // Header row
-            sb.Append("     ");
-            foreach (var col in colHeaders)
-                sb.Append(col.PadLeft(8));
-            sb.AppendLine();
-
-            // Data rows
-            for (int i = 0; i < rows; i++)
-            {
-                string rowHeader = (i == 0) ? "z" : $"C{i}";
-                sb.Append(rowHeader.PadRight(5));
-                for (int j = 0; j < cols; j++)
-                {
-                    // Avoid printing -0
-                    string value = tableau[i, j].ToString("0.###").Replace("-0", "0");
-                    sb.Append(value.PadLeft(8));
-                }
-                sb.AppendLine();
-            }
-
-            return sb.ToString();
-        }
     }
 }
