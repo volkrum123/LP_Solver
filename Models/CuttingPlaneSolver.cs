@@ -20,7 +20,7 @@ namespace LP_Solver.Models
             _canonicalForm = new CanonicalForm();
         }
 
-        internal CuttingPlaneResult Solve(LPModel model, Action<string> logOutput = null)  // Changed to internal
+        internal CuttingPlaneResult Solve(LPModel model, Action<string> logOutput)  // Changed to internal
         {
             // Handle null logOutput by creating a default action
             Action<string> safeLogOutput = logOutput ?? (s => { });

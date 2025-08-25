@@ -51,6 +51,10 @@ namespace LP_Solver
                     txtOutput.Clear();
                     _controller.BranchAndBoundSolveFromInput(txtInput.Text, AppendOutput);
                     break;
+                case 5:
+                    txtOutput.Clear();
+                    _controller.CuttingPlaneSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
             }
            // comboBox1.SelectedIndex = 0;
         }
