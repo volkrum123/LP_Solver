@@ -357,62 +357,104 @@ namespace LP_Solver.Controllers
         }
         public void SolveNonlinearFromInput(string input, Action<string> log)
         {
-            // Accept:
-            //   min f(x) = x^2 + 3*x + 2
-            //   interval [-5, 5]
-            //   tol = 1e-6
+            // Accept examples:
+            //   max f(theta) = 4*sin(theta)*(1+cos(theta))
+            //   interval [0, pi/2]
+            //   tol = 0.05
+            //   iters = 2
             //
-            // Or one-line:
             //   min x^2 on [-5,5], tol=1e-6
 
-            var txt = input.Replace("\r", " ").Replace("\n", " ").Trim();
+            string txt = input.Replace("\r", " ").Replace("\n", " ").Trim();
 
             bool isMax = Regex.IsMatch(txt, @"\bmax\b", RegexOptions.IgnoreCase);
-            // default to min if "max" not present
-            // (no need for isMin variable)
 
-            // ---- f(x) expression ----
-            var mFx = Regex.Match(txt, @"f\s*\(\s*x\s*\)\s*=\s*([^,\]\)]+)", RegexOptions.IgnoreCase);
-            string fexpr = mFx.Success ? mFx.Groups[1].Value.Trim() : null;
-            if (string.IsNullOrWhiteSpace(fexpr))
+            // ---- extract f(<var>) = <expr>  OR  fallback after "min|max"
+            // captures the variable name if present (x, theta, α, ...), then the rhs expr.
+            var mFx = Regex.Match(
+                txt,
+                @"f\s*\(\s*([^\)]+)\s*\)\s*=\s*(.+?)(?=$|\bon\b|\binterval\b|\[|\btol\b|\biters\b)",
+                RegexOptions.IgnoreCase);
+            string fexpr;
+            if (mFx.Success)
             {
-                // fallback: "min x^2 on ..."
-                var mBare = Regex.Match(txt, @"(?:min|max)\s+(.+?)\s+(?:on|interval|\[|tol=)", RegexOptions.IgnoreCase);
-                if (mBare.Success) fexpr = mBare.Groups[1].Value.Trim();
+                fexpr = mFx.Groups[2].Value.Trim();
             }
-            if (string.IsNullOrWhiteSpace(fexpr))
-                throw new ArgumentException("Could not find f(x) expression.");
+            else
+            {
+                var mBare = Regex.Match(
+                    txt, @"(?:min|max)\s+(.+?)\s+(?:on|interval|\[|tol=|iters=)",
+                    RegexOptions.IgnoreCase);
+                if (!mBare.Success) throw new ArgumentException("Could not find f(x) expression.");
+                fexpr = mBare.Groups[1].Value.Trim();
+            }
 
-            // ---- interval [a,b] ----
-            var mIv = Regex.Match(txt, @"\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]");
+            // ---- interval [a,b]  (a and b may be expressions like pi/2, 3*pi/4, ...)
+            var mIv = Regex.Match(txt, @"\[\s*([^,\]]+)\s*,\s*([^,\]]+)\s*\]");
             if (!mIv.Success) throw new ArgumentException("Missing interval [a,b].");
-            double a = double.Parse(mIv.Groups[1].Value, CultureInfo.InvariantCulture);
-            double b = double.Parse(mIv.Groups[2].Value, CultureInfo.InvariantCulture);
+            double a = ParseScalar(mIv.Groups[1].Value);
+            double b = ParseScalar(mIv.Groups[2].Value);
             if (a >= b) throw new ArgumentException("Interval must satisfy a < b.");
 
-            // ---- tolerance ----
+            // ---- tolerance (optional) ----
             var mTol = Regex.Match(txt, @"tol\s*=\s*([eE0-9\.\-+]+)");
-            double tol = mTol.Success ? double.Parse(mTol.Groups[1].Value, CultureInfo.InvariantCulture) : 1e-6;
+            double tol = mTol.Success
+                ? double.Parse(mTol.Groups[1].Value, CultureInfo.InvariantCulture)
+                : 1e-6;
 
-            // ---- compile f ----
-            var f0 = ExpressionParser.Compile(fexpr);
+            // ---- iteration cap (optional) ----
+            var mIt = Regex.Match(txt, @"iters?\s*=\s*(\d+)");
+            int maxIter = mIt.Success ? int.Parse(mIt.Groups[1].Value) : 0; // 0 = auto from tol
 
-            // ---- canonical display ----
+            // ---- normalize expression: map theta/α/etc -> x, π/pi -> numeric
+            string normExpr = NormalizeExpr(fexpr);
+
+            // ---- compile function (now in terms of x, with sin/cos supported)
+            var f0 = ExpressionParser.Compile(normExpr);
+
+            // ---- canonical display (keep user’s original expression for readability)
             log("\r\n=== Canonical Form (Nonlinear, 1D) ===\r\n");
             log($"{(isMax ? "Maximize" : "Minimize")}: f(x) = {fexpr}\r\n");
             log($"Subject to: x ∈ [{a:0.000}, {b:0.000}], tol = {tol:0.000}\r\n");
 
-            // ---- solve (auto-iterations via maxIter: 0) ----
-            (double xstar, double fstar, int iters) = isMax
-                ? GoldenSectionSolver.Maximize(f0, a, b, tol, 0, log)
-                : GoldenSectionSolver.Minimize(f0, a, b, tol, 0, log);
+            // ---- solve (max via Minimize(-f))
+            double xstar, fstar; int iters;
+            if (isMax)
+            {
+                (xstar, fstar, iters) = GoldenSectionSolver.Maximize(f0, a, b, tol, maxIter, log);
+            }
+            else
+            {
+                (xstar, fstar, iters) = GoldenSectionSolver.Minimize(f0, a, b, tol, maxIter, log);
+            }
 
             // ---- summary ----
             log("\r\n=== Nonlinear Result ===\r\n");
-            log($"x* = {xstar:0.000}\r\n");
-            log($"f(x*) = {fstar:0.000}\r\n");
+            log($"x* = {xstar:0.000000}\r\n");
+            log($"f(x*) = {fstar:0.000000}\r\n");
             log($"Iterations = {iters}\r\n");
 
+            // ---- helpers (local) ----
+            static string NormalizeExpr(string s)
+            {
+                // word-boundary replace variable aliases -> x
+                s = Regex.Replace(s, @"\b(theta|θ|alpha|α)\b", "x", RegexOptions.IgnoreCase);
+
+                // replace π/pi with numeric value
+                s = Regex.Replace(s, @"\bpi\b", Math.PI.ToString(CultureInfo.InvariantCulture), RegexOptions.IgnoreCase);
+                s = s.Replace("π", Math.PI.ToString(CultureInfo.InvariantCulture));
+
+                return s;
+            }
+
+            static double ParseScalar(string raw)
+            {
+                // allow things like "pi/2", "3*pi/4", "1.2"
+                string expr = NormalizeExpr(raw);
+                var f = ExpressionParser.Compile(expr); // no 'x' in scalar — evaluated at x=0
+                return f(0.0);
+            }
         }
+
     }
 }
