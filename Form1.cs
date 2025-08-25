@@ -65,10 +65,7 @@ namespace LP_Solver
                     txtOutput.Clear();
                     try
                     {
-                        // Expect LP/IP-style like:
-                        // max +2 +2 +3 +5 +2 +4
-                        // +11 +8 +6 +14 +10 +10 <= 40
-                        // bin bin bin bin bin bin
+
                         bool hasObj = Regex.IsMatch(txtInput.Text, @"\b(max|min)\b", RegexOptions.IgnoreCase);
                         bool hasCap = Regex.IsMatch(txtInput.Text, @"<=", RegexOptions.IgnoreCase);
                         bool hasBin = Regex.IsMatch(txtInput.Text, @"\bbin\b", RegexOptions.IgnoreCase);
