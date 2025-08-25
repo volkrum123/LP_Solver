@@ -9,26 +9,27 @@ namespace LP_Solver.Models
 {
     internal class SimplexSolver
     {
-        public (double[,], List<string>) CreateTableau(LPModel model)
+        public (double[,], List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the primal simplex.
         {
+            //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
+
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
-            int width = numVariables + numConstraints + 1; // variables + slack/surplus + RHS
+            int width = numVariables + numConstraints + 1;
             int height = numConstraints + 1;
-
             double[,] tableau = new double[height, width];
             var constraintTypes = new List<string>();
 
-            // Objective row
+            // Converts the Objective coefficents to negative values if it is a Max model.
             for (int j = 0; j < numVariables; j++)
             {
                 double coeff = model.ObjectiveCoefficients[j];
                 tableau[0, j] = model.ObjectiveType.Equals("Max", StringComparison.OrdinalIgnoreCase)
-                    ? -coeff   // maximize → negate
-                    : coeff;   // minimize → keep as-is
+                    ? -coeff   // maximize → negatife
+                    : coeff;   // minimize → positive
             }
 
-            // Constraints
+            // Converts the constraints to their standard form by adding slack or surplus variables
             for (int i = 0; i < numConstraints; i++)
             {
                 string constraint = model.Constraints[i];
@@ -59,7 +60,6 @@ namespace LP_Solver.Models
                 else if (isGE)
                 {
                     tableau[i + 1, slackCol] = 1.0; // surplus variable
-                                                    // flip row for simplex (if needed)
                     for (int j = 0; j < numVariables; j++)
                         tableau[i + 1, j] *= -1;
 
@@ -79,21 +79,21 @@ namespace LP_Solver.Models
                     tableau[i + 1, width - 1] = double.Parse(rhsMatch.Value);
             }
 
-            return (tableau, constraintTypes);
+            return (tableau, constraintTypes); 
         }
-        public double[,] Solve(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        public double[,] Solve(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType) // The method used to execute the primal simplex.
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
             var headers = new CanonicalForm();
 
-            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis, objectiveType, logOutput))
+            while (PerformIteration(tableau, numConstraints, tableau.GetLength(1), basis, objectiveType, logOutput)) // Calls the iteration method to perform pivoting logic.
             {
                 logOutput($"\r\nIteration {iteration++}:\r\n");
-                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes)); // Labels rows and columns with headers
             }
             logOutput("\r\nOptimal solution reached.\r\n");
-            return tableau;
+            return tableau; // returns the optimal solution
 
         }
 
@@ -101,7 +101,8 @@ namespace LP_Solver.Models
         {
             int pivotCol = -1;
             double mostNegative = 0;
-
+            
+            // Reads through the columns to get the pivot column. If max then the pivot column is the most negative objective coeffiecent, if Min then most positive
             for (int j = 0; j<numCols -1; j++)
             {
                 if (objectiveType.Equals("Max", StringComparison.OrdinalIgnoreCase))
@@ -126,6 +127,7 @@ namespace LP_Solver.Models
                 return false;
             }
 
+            // Gets the pivot row by dividing the rhs values with the values in the pivot columns and choosing the smallest positive ratios.
             int pivotRow = -1;
             double minRatio = double.MaxValue;
             for(int i =1; i <= numConstraints; i++)
@@ -147,8 +149,9 @@ namespace LP_Solver.Models
                 logOutput("\r\nSolution is Unbounded.\r\n");
                 return false; // Stop iterations
             }
-            basis[pivotRow - 1] = pivotCol;
 
+            // gets the pivoting point where the pivot row and columns interconnnects, And then diveds each column with that value.
+            basis[pivotRow - 1] = pivotCol;
             double pivotElement = tableau[pivotRow, pivotCol];
             for(int j = 0; j < numCols; j++)
             {
@@ -163,7 +166,7 @@ namespace LP_Solver.Models
                     tableau[i,j] -= factor * tableau[pivotRow,j];
                 }
             }
-            return true;
+            return true; //Returns the iterated table
         }    
     }
 }

@@ -10,24 +10,25 @@ namespace LP_Solver.Models
 {
     internal class DuelSimplexSolver
     {
-        public (double[,],List<string>) CreateTableau(LPModel model)
+        public (double[,],List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the dual simplex simplex.
         {
+            //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
-            int width = numVariables + numConstraints + 1; // variables + slack/surplus + RHS
+            int width = numVariables + numConstraints + 1; 
             int height = numConstraints + 1;
-
             double[,] tableau = new double[height, width];
             var constraintTypes = new List<string>();
 
-            // Objective function (row 0)
+            // Converts the Objective coefficents to negative values if it is a Max and min model.
             for (int j = 0; j < numVariables; j++)
             {
                 double coeff = model.ObjectiveCoefficients[j];
                 tableau[0, j] = model.ObjectiveType.ToLower() == "min" ? -coeff : -coeff;
             }
 
-            // Constraints
+
+            // Converts the constraints to their standard form by adding slack or surplus variables
             for (int i = 0; i < numConstraints; i++)
             {
                 string constraint = model.Constraints[i];
@@ -77,22 +78,22 @@ namespace LP_Solver.Models
 
             return (tableau, constraintTypes);
         }
-        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)// The method used to execute the dual simplex.
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
             var headers = new CanonicalForm();
 
-            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput))
+            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput)) // Calls the iteration method to perform dual logic.
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
-                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes)); // Labels rows and columns with headers
             }
 
             logOutput("\r\nDual simplex phase completed.\r\n");
             logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
 
-            // Check for primal optimality
+            // Check if the last dual iteration is optimal or not by seeinf if their is negative values in a Max model and positive values in a min model
             bool primalOptimal = true;
             for (int j = 0; j < numVariables; j++)
             {
@@ -106,7 +107,7 @@ namespace LP_Solver.Models
                 }
             }
 
-            // If not optimal, call primal simplex
+            // If the dual table is not optimal then it executes the primal simplex method to get the optimal table
             if (!primalOptimal)
             {
                 logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
@@ -120,9 +121,9 @@ namespace LP_Solver.Models
             return tableau;
         }
 
-        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis, Action<string> logOutput)
+        private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis, Action<string> logOutput) 
         {
-            // Step 1: Pivot row → most negative RHS
+            // gets the Pivot row by selecting the most negative RHS value.
             int pivotRow = -1;
             double minRHS = 1e-9;
 
@@ -138,7 +139,7 @@ namespace LP_Solver.Models
 
             if (pivotRow == -1) return false; // All RHS ≥ 0 → done
 
-            // Step 2: Pivot column → choose negative entries in pivot row
+            // Gets the Pivot column by dividing the 
             int pivotCol = -1;
             double minRatio = double.MaxValue;
 
