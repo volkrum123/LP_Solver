@@ -127,7 +127,7 @@ namespace LP_Solver.Models
             }).ToList();
         }
         private string ParseConstraint(string line) // the constraint extraxtion logic used by the parse method.
-        {
+        { /*
             // Normalize whitespace
             line = Regex.Replace(line, @"\s+", " ");
 
@@ -166,7 +166,9 @@ namespace LP_Solver.Models
             // Build normalized constraint
             string c = string.Join(" ", terms) + " " + op + " " + rhs;
             return c;
-            /*
+
+            */
+            
             var coeffMatches = Regex.Matches(line, @"([+-]?\d*\.?\d*)\s*\*?\s*x\d+"); // Checks for +-/*,.\ =<>
             var varMatches = Regex.Matches(line, @"x\d+"); 
 
@@ -193,7 +195,7 @@ namespace LP_Solver.Models
             string rhs = Regex.Match(line, @"-?\d*\.?\d+\s*$").Value;
             string c = string.Join(" ", terms) + " " + op + " " + rhs;
             return c;
-            */
+            
         }
         private void EnsureVariableInfo(LPModel model, int idx) //Integer and binary extraction logic used by the parse method.
         {
