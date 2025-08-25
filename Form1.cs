@@ -48,6 +48,18 @@ namespace LP_Solver
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
+                case 3:
+                    txtOutput.Clear();
+                    _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
+                case 4:
+                    txtOutput.Clear();
+                    _controller.BranchAndBoundSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
+                case 5:
+                    txtOutput.Clear();
+                    _controller.CuttingPlaneSolveFromInput(txtInput.Text, AppendOutput);
+                    break;
 
                 case 6: // Branch & Bound Knapsack (LP-style expected)
                     txtOutput.Clear();
@@ -113,8 +125,12 @@ namespace LP_Solver
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
+                    // Read file content
                     string lpModelText = File.ReadAllText(openFileDialog.FileName);
+
+                    // Put it into the txtInput box for preview
                     txtInput.Text = lpModelText;
+
                 }
             }
         }
@@ -125,13 +141,12 @@ namespace LP_Solver
             {
                 saveFileDialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
                 saveFileDialog.Title = "Save Output As";
-                saveFileDialog.FileName = "LP_Output.txt";
+                saveFileDialog.FileName = "LP_Output.txt"; // default filename
 
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     File.WriteAllText(saveFileDialog.FileName, txtOutput.Text);
-                    MessageBox.Show("Output saved successfully!", "Saved",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Output saved successfully!", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
