@@ -35,6 +35,15 @@ namespace LP_Solver.Models
                     model.ObjectiveCoefficients = GetObjectiveCoefficients(line);
                     EnsureVariableInfos(model);
                 }
+                else if (Regex.IsMatch(line, @"^(max|min)\s+([+-]?\d+(\s+[+-]?\d+)*)"))
+                {
+                    var tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    model.ObjectiveType = tokens[0].ToLower() == "max" ? "Max" : "Min";
+                    model.ObjectiveCoefficients = tokens.Skip(1)
+                        .Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture))
+                        .ToList();
+                    EnsureVariableInfos(model);
+                }
                 else if (Regex.IsMatch(line, @"x\d+(\s*,\s*x\d+)*\s*>=\s*0"))
                 {
                     var matches = Regex.Matches(line, @"x(\d+)");
@@ -53,9 +62,36 @@ namespace LP_Solver.Models
                     model.Variables[idx].LowerBound = double.Parse(match.Groups[1].Value);
                     model.Variables[idx].UpperBound = double.Parse(match.Groups[3].Value);
                 }
-                else if (line.Contains("<=") || line.Contains(">=") || line.Contains("="))
+                else if (line.Contains("x") )
                 {
                     model.Constraints.Add(ParseConstraint(line));
+                }
+                else if (Regex.IsMatch(line, @"^([+-]?\d+(\s+[+-]?\d+)*)\s*(<=|>=|=)\s*-?\d+"))
+                {
+                    // Match LHS and RHS using a capturing regex
+                    var match = Regex.Match(line, @"^([+-]?\d+(\s+[+-]?\d+)*)\s*(<=|>=|=)\s*(-?\d+(\.\d+)?)$");
+                    if (!match.Success)
+                        continue; // skip if format is invalid
+
+                    string lhs = match.Groups[1].Value.Trim();
+                    string op = match.Groups[3].Value;
+                    string rhs = match.Groups[4].Value;
+
+                    // Parse coefficients
+                    var coeffs = lhs.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(c => double.Parse(c, System.Globalization.CultureInfo.InvariantCulture))
+                                    .ToList();
+
+                    // Build human-readable constraint
+                    List<string> terms = new List<string>();
+                    for (int i = 0; i < coeffs.Count; i++)
+                    {
+                        if (coeffs[i] != 0)
+                            terms.Add($"{coeffs[i]}x{i + 1}");
+                    }
+
+                    string constraint = string.Join(" ", terms) + " " + op + " " + rhs;
+                    model.Constraints.Add(constraint);
                 }
             }
 
@@ -127,48 +163,7 @@ namespace LP_Solver.Models
             }).ToList();
         }
         private string ParseConstraint(string line) // the constraint extraxtion logic used by the parse method.
-        { /*
-            // Normalize whitespace
-            line = Regex.Replace(line, @"\s+", " ");
-
-            // Extract operator (<=, >=, =)
-            string op = Regex.Match(line, @"(<=|>=|=)").Value;
-            if (string.IsNullOrEmpty(op))
-                throw new Exception("Constraint operator not found in line: " + line);
-
-            // Extract RHS (number after operator)
-            string rhs = Regex.Match(line, @"(<=|>=|=)\s*(-?\d+(\.\d+)?)").Groups[2].Value;
-            if (string.IsNullOrEmpty(rhs))
-                throw new Exception("Right-hand side not found in line: " + line);
-
-            // Extract variable terms like "11x1", "+ 8x2", "-6x3"
-            var matches = Regex.Matches(line, @"([+-]?\s*\d*\.?\d*)\s*\*?\s*x\d+");
-
-            List<string> terms = new List<string>();
-            foreach (Match m in matches)
-            {
-                string coeff = Regex.Match(m.Value, @"[+-]?\d*\.?\d*").Value.Replace(" ", "");
-                string varName = Regex.Match(m.Value, @"x\d+").Value;
-
-                // Default coefficient handling
-                if (string.IsNullOrWhiteSpace(coeff) || coeff == "+")
-                    coeff = "1";
-                else if (coeff == "-")
-                    coeff = "-1";
-
-                // Format sign explicitly (avoid "11x1 8x2", use "11x1 + 8x2")
-                if (terms.Count > 0 && !coeff.StartsWith("-"))
-                    coeff = "+" + coeff;
-
-                terms.Add($"{coeff}{varName}");
-            }
-
-            // Build normalized constraint
-            string c = string.Join(" ", terms) + " " + op + " " + rhs;
-            return c;
-
-            */
-            
+        { 
             var coeffMatches = Regex.Matches(line, @"([+-]?\d*\.?\d*)\s*\*?\s*x\d+"); // Checks for +-/*,.\ =<>
             var varMatches = Regex.Matches(line, @"x\d+"); 
 
