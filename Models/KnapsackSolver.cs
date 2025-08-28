@@ -15,7 +15,7 @@ namespace LP_Solver.Models
             public int Value;
             public double Bound;
             public bool[] Picks;
-            public string Path; // e.g. "P.0.1.0" (for trace)
+            public string Path; // e.g. "P.1.2.1" (for trace)
 
             public Node(int n) { Picks = new bool[n]; }
             public Node(Node other)
@@ -182,7 +182,7 @@ namespace LP_Solver.Models
                 var without = new Node(node)
                 {
                     Level = node.Level + 1,
-                    Path = node.Path + ".0"
+                    Path = node.Path + ".1"
                 };
                 without.Picks[node.Level] = false;
                 without.Bound = Bound(without.Level, node.Weight, node.Value);
@@ -228,7 +228,7 @@ namespace LP_Solver.Models
                     Level = node.Level + 1,
                     Weight = node.Weight + item.Weight,
                     Value = node.Value + item.Value,
-                    Path = node.Path + ".1"
+                    Path = node.Path + ".2"
                 };
                 with.Picks[node.Level] = true;
 
@@ -428,15 +428,15 @@ namespace LP_Solver.Models
 
                 var it = sorted[level];
 
-                // ---------- EXCLUDE (0) first ----------
+                // ---------- EXCLUDE (1) first ----------
                 {
-                    string p0 = path + ".0";
+                    string p1 = path + ".1";
                     double ub0 = Bound(level + 1, w, v);
                     if (ub0 > bestValue)
                     {
                         trace?.Nodes.Add(new TraceNode
                         {
-                            Path = p0,
+                            Path = p1,
                             Level = level + 1,
                             Decision = 0,
                             ItemSortedIndex = level,
@@ -449,7 +449,7 @@ namespace LP_Solver.Models
                         });
 
                         picks[level] = false;
-                        DFS(level + 1, w, v, p0);
+                        DFS(level + 1, w, v, p1);
                         picks[level] = false; // explicit backtrack
                     }
                     else
@@ -457,7 +457,7 @@ namespace LP_Solver.Models
                         pruned++;
                         trace?.Nodes.Add(new TraceNode
                         {
-                            Path = p0,
+                            Path = p1,
                             Level = level + 1,
                             Decision = 0,
                             ItemSortedIndex = level,
@@ -471,9 +471,9 @@ namespace LP_Solver.Models
                     }
                 }
 
-                // ---------- INCLUDE (1) second ----------
+                // ---------- INCLUDE (2) second ----------
                 {
-                    string p1 = path + ".1";
+                    string p2 = path + ".2";
                     int w1 = w + it.Weight, v1 = v + it.Value;
 
                     if (w1 > capacity)
@@ -481,7 +481,7 @@ namespace LP_Solver.Models
                         pruned++;
                         trace?.Nodes.Add(new TraceNode
                         {
-                            Path = p1,
+                            Path = p2,
                             Level = level + 1,
                             Decision = 1,
                             ItemSortedIndex = level,
@@ -504,10 +504,10 @@ namespace LP_Solver.Models
                             Array.Copy(picks, bestPickSorted, n);
                             bestPickSorted[level] = true; // include current
 
-                            log?.Invoke($"  * Incumbent update @ {p1}: value={bestValue}, weight={bestWeight}\r\n");
+                            log?.Invoke($"  * Incumbent update @ {p2}: value={bestValue}, weight={bestWeight}\r\n");
                             trace?.Nodes.Add(new TraceNode
                             {
-                                Path = p1,
+                                Path = p2,
                                 Level = level + 1,
                                 Decision = 1,
                                 ItemSortedIndex = level,
@@ -525,7 +525,7 @@ namespace LP_Solver.Models
                         {
                             trace?.Nodes.Add(new TraceNode
                             {
-                                Path = p1,
+                                Path = p2,
                                 Level = level + 1,
                                 Decision = 1,
                                 ItemSortedIndex = level,
@@ -538,7 +538,7 @@ namespace LP_Solver.Models
                             });
 
                             picks[level] = true;
-                            DFS(level + 1, w1, v1, p1);
+                            DFS(level + 1, w1, v1, p2);
                             picks[level] = false; // backtrack
                         }
                         else
@@ -546,7 +546,7 @@ namespace LP_Solver.Models
                             pruned++;
                             trace?.Nodes.Add(new TraceNode
                             {
-                                Path = p1,
+                                Path = p2,
                                 Level = level + 1,
                                 Decision = 1,
                                 ItemSortedIndex = level,

@@ -147,18 +147,28 @@ namespace LP_Solver.Controllers
                 logOutput($"Variable x{i + 1}: Type={typeStr}, Bounds: {bounds}\r\n");
             }
             //Canonical From
-            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
+            string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);
             logOutput("\r\n" + canonicalForm + "\r\n");
         }
 
         // ====================== BRANCH & BOUND KNAPSACK ======================
+        static string PrettyPath(string p)
+        {
+            if (string.IsNullOrEmpty(p) || p == "P") return "";
+            var segs = p.Split('.').Skip(1).ToArray();
+            // convert ONLY if we actually see a legacy '0'
+            if (segs.Any(s => s == "0"))
+                segs = segs.Select(s => s == "0" ? "1" : s == "1" ? "2" : s).ToArray();
+            return string.Join('.', segs);
+        }
+
         public void SolveKnapsackFromInput(string input, Action<string> log)
         {
             var ks = new KnapsackParser().Parse(input);
             if (ks.WasMinConvertedToMax)
                 log("Note: objective was Min — normalized to Max by negating values.\r\n");
 
-            // 1) Initial tableau (x1..xN only + RHS) in the same style as LP tables
+            // 1) Initial tableau 
             var (tab, cols, rows) = _canonicalForm.BuildKnapsackXOnlyTableau(ks);
             log("\r\n" + _canonicalForm.TableauToStringCustom(tab, cols, rows, title: "Initial Tableau:"));
 
@@ -200,14 +210,14 @@ namespace LP_Solver.Controllers
                 var (subTab, subCols, subRows) =
                     _canonicalForm.BuildKnapsackXOnlyTableauWithDecisions(ks, list);
 
-                string title = $"Sub-problem {n.Path}  (x{n.ItemOriginalIndex + 1} = {n.Decision.Value})";
+                string title = $"Sub-problem {PrettyPath(n.Path)}  (x{n.ItemOriginalIndex + 1} = {n.Decision.Value})";
                 if (!double.IsNaN(n.Bound) && !double.IsInfinity(n.Bound)) title += $"   UB={Math.Round(n.Bound, 3):0.###}";
                 if (!string.IsNullOrWhiteSpace(n.Status)) title += $"   [{n.Status}]";
 
                 log(_canonicalForm.TableauToStringCustom(subTab, subCols, subRows, title: title));
             }
 
-            // 5) Final summary (kept concise)
+            // 5) Summary
             var dv = string.Join(", ", res.DecisionVector.Select(b => b ? "1" : "0"));
             log($"\r\n=== Knapsack Result ===\r\n");
             log($"Capacity: {res.Capacity}\r\n");
@@ -217,12 +227,12 @@ namespace LP_Solver.Controllers
             log($"Nodes Explored: {res.NodesExplored}, Pruned: {res.NodesPruned}\r\n");
         }
 
+
         // ====================== NON-LINEAR (Golden Section) ======================
         public void SolveNonlinearFromInput(string input, Action<string> log)
         {
             log ??= _ => { };
 
-            // If you added NonlinearParser as we discussed:
             var m = new NonlinearParser().Parse(input);
 
             log("\r\n=== Nonlinear (Golden Section) ===\r\n");
