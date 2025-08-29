@@ -9,6 +9,7 @@ namespace LP_Solver.Models
 {
     internal class SimplexSolver
     {
+        private List<int> _lastBasisIndices;
         public (double[,], List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the primal simplex.
         {
             //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
@@ -92,9 +93,14 @@ namespace LP_Solver.Models
                 logOutput($"\r\nIteration {iteration++}:\r\n");
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes)); // Labels rows and columns with headers
             }
+            _lastBasisIndices = basis.ToList();
             logOutput("\r\nOptimal solution reached.\r\n");
             return tableau; // returns the optimal solution
 
+        }
+        public List<int> GetBasicIndices()
+        {
+            return _lastBasisIndices ?? new List<int>();
         }
 
         private bool PerformIteration(double[,] tableau, int numConstraints,int numCols, int[] basis, string objectiveType, Action<string> logOutput)

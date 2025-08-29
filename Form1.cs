@@ -23,8 +23,18 @@ namespace LP_Solver
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
             comboBox1.Items.Add("Branch & Bound Knapsack");
-
             comboBox1.SelectedIndex = 0;
+
+            comboBoxSensitivity.Items.Clear();
+            comboBoxSensitivity.Items.Add("Select option:");
+            comboBoxSensitivity.Items.Add("Display Reduced Costs");
+            comboBoxSensitivity.Items.Add("Display Shadow Prices");
+            comboBoxSensitivity.Items.Add("Display Objective Ranges");
+            comboBoxSensitivity.Items.Add("Display RHS Ranges");
+            comboBoxSensitivity.Items.Add("Apply Objective Coefficient Change");
+            comboBoxSensitivity.Items.Add("Apply RHS Change");
+            comboBoxSensitivity.Items.Add("Apply Variable Change");
+            comboBoxSensitivity.SelectedIndex = 0;
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
@@ -47,7 +57,7 @@ namespace LP_Solver
                     txtOutput.Clear();
                     _controller.DualSolveFromInput(txtInput.Text, AppendOutput);
                     break;
-                case 4: 
+                case 4:
                     txtOutput.Clear();
                     _controller.BranchAndBoundSolveFromInput(txtInput.Text, AppendOutput);
                     break;
@@ -56,13 +66,8 @@ namespace LP_Solver
                     _controller.CuttingPlaneSolveFromInput(txtInput.Text, AppendOutput);
                     break;
             }
-           // comboBox1.SelectedIndex = 0;
+            // comboBox1.SelectedIndex = 0;
         }
-        private void AppendOutput(string text)
-        {
-            txtOutput.AppendText(text);
-        }
-
         private void btnLoadFile_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
@@ -98,6 +103,21 @@ namespace LP_Solver
             }
         }
 
-        
+        private void comboBoxSensitivity_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (comboBoxSensitivity.SelectedIndex <= 0) return;
+
+            string operation = comboBoxSensitivity.SelectedItem.ToString();
+            string userInput = txtSensitivityInput.Text; // use separate text box for apply operations
+
+            string result = _controller.SensitivityAnalysisFromInput(operation, userInput);
+            txtOutput.AppendText(result + "\r\n");
+        }
+
+        private void AppendOutput(string text)
+        {
+            txtOutput.AppendText(text);
+        }
+
     }
 }

@@ -35,7 +35,9 @@
             btnLoadFile = new Button();
             btnExport = new Button();
             panel1 = new Panel();
+            comboBoxSensitivity = new ComboBox();
             label2 = new Label();
+            txtSensitivityInput = new TextBox();
             panel1.SuspendLayout();
             SuspendLayout();
             // 
@@ -54,7 +56,7 @@
             txtInput.Multiline = true;
             txtInput.Name = "txtInput";
             txtInput.ScrollBars = ScrollBars.Vertical;
-            txtInput.Size = new Size(743, 150);
+            txtInput.Size = new Size(349, 150);
             txtInput.TabIndex = 1;
             // 
             // txtOutput
@@ -102,6 +104,7 @@
             // panel1
             // 
             panel1.BorderStyle = BorderStyle.FixedSingle;
+            panel1.Controls.Add(comboBoxSensitivity);
             panel1.Controls.Add(btnLoadFile);
             panel1.Controls.Add(comboBox1);
             panel1.Controls.Add(btnExport);
@@ -109,6 +112,15 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(250, 566);
             panel1.TabIndex = 7;
+            // 
+            // comboBoxSensitivity
+            // 
+            comboBoxSensitivity.FormattingEnabled = true;
+            comboBoxSensitivity.Location = new Point(39, 300);
+            comboBoxSensitivity.Name = "comboBoxSensitivity";
+            comboBoxSensitivity.Size = new Size(151, 28);
+            comboBoxSensitivity.TabIndex = 7;
+            comboBoxSensitivity.SelectedIndexChanged += comboBoxSensitivity_SelectedIndexChanged;
             // 
             // label2
             // 
@@ -119,11 +131,19 @@
             label2.TabIndex = 8;
             label2.Text = "Desplayed Solved Model:";
             // 
+            // txtSensitivityInput
+            // 
+            txtSensitivityInput.Location = new Point(754, 57);
+            txtSensitivityInput.Name = "txtSensitivityInput";
+            txtSensitivityInput.Size = new Size(125, 27);
+            txtSensitivityInput.TabIndex = 9;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1168, 592);
+            Controls.Add(txtSensitivityInput);
             Controls.Add(label2);
             Controls.Add(panel1);
             Controls.Add(txtOutput);
@@ -148,5 +168,7 @@
         private Button btnExport;
         private Panel panel1;
         private Label label2;
+        private ComboBox comboBoxSensitivity;
+        private TextBox txtSensitivityInput;
     }
 }

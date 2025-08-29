@@ -16,6 +16,10 @@ namespace LP_Solver.Controllers
         private CanonicalForm _canonicalForm;
         private RevisedPrimal _revised;
         private CuttingPlaneSolver _cuttingPlaneSolver;
+        private SensitivityAnalysis _sensitivity;
+        private double[,] LastOptimalTableau;
+        private List<int> LastBasicIndices;
+
 
 
         public LPController()
@@ -42,14 +46,16 @@ namespace LP_Solver.Controllers
                  _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
 
            double[,] OptimalTable = _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+            LastOptimalTableau = OptimalTable;
+            LastBasicIndices = _solver.GetBasicIndices();
+            // Initialize sensitivity
+            _sensitivity = new SensitivityAnalysis(model, LastOptimalTableau, LastBasicIndices);
 
         }
 
         public void RevisedSolveFromInput(string input, Action<string> logOutput)
         {
             var model = _parser.Parse(input);
-           
-
             double[] solution = _revised.Solve(model, logOutput);
             
         }
@@ -70,6 +76,11 @@ namespace LP_Solver.Controllers
 
             // Solve using dual simplex
             double[,] OptimalTable = _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+
+            LastOptimalTableau = OptimalTable;
+            LastBasicIndices = _dualSolver.GetBasicIndices();
+
+            _sensitivity = new SensitivityAnalysis(model, LastOptimalTableau, LastBasicIndices);
 
         }
 
@@ -143,6 +154,57 @@ namespace LP_Solver.Controllers
             //Canonical From
             string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
             logOutput("\r\n" + canonicalForm + "\r\n");
+        }
+
+        public string SensitivityAnalysisFromInput(string operation, string userInput)
+        {
+            if (_sensitivity == null)
+                return "No solution available. Solve a model first.";
+
+            switch (operation)
+            {
+                case "Display Reduced Costs":
+                    return _sensitivity.DisplayReducedCosts();
+
+                case "Display Shadow Prices":
+                    return _sensitivity.DisplayShadowPrices();
+
+                case "Display Objective Ranges":
+                    return _sensitivity.DisplayObjectiveRanges();
+
+                case "Display RHS Ranges":
+                    return _sensitivity.DisplayRHSRanges();
+
+                case "Apply Objective Coefficient Change":
+                    if (ParseIndexValue(userInput, out int idxObj, out double valObj))
+                        return _sensitivity.ApplyNonBasicVariableChange(idxObj, valObj);
+                    return "Invalid input. Use format: index,value (e.g., 0,55)";
+
+                case "Apply RHS Change":
+                    if (ParseIndexValue(userInput, out int idxRHS, out double valRHS))
+                        return _sensitivity.ApplyRHSChange(idxRHS, valRHS);
+                    return "Invalid input. Use format: index,value (e.g., 1,25)";
+
+                case "Apply Variable Change":
+                    if (ParseIndexValue(userInput, out int idxVar, out double valVar))
+                        return _sensitivity.ApplyVariableChange(idxVar, valVar);
+                    return "Invalid input. Use format: index,value (e.g., 0,10)";
+
+                default:
+                    return "Invalid operation selected.";
+               }
+
+            }
+        private bool ParseIndexValue(string input, out int index, out double value)
+        {
+            index = -1;
+            value = 0;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            string[] parts = input.Split(',');
+            if (parts.Length != 2) return false;
+            if (!int.TryParse(parts[0], out index)) return false;
+            if (!double.TryParse(parts[1], out value)) return false;
+            return true;
         }
     }
 }

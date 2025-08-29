@@ -10,6 +10,7 @@ namespace LP_Solver.Models
 {
     internal class DuelSimplexSolver
     {
+        private List<int> _lastBasisIndices;
         public (double[,],List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the dual simplex simplex.
         {
             //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
@@ -113,14 +114,20 @@ namespace LP_Solver.Models
                 logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
                 var primalSolver = new SimplexSolver();
                 tableau = primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
+
+                _lastBasisIndices = primalSolver.GetBasicIndices();
             }
             else
             {
                 logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
+                _lastBasisIndices = new List<int>(basis);
             }
             return tableau;
         }
-
+        public List<int> GetBasicIndices()
+        {
+            return _lastBasisIndices ?? new List<int>();
+        }
         private bool PerformDualIteration(double[,] tableau, int numConstraints, int numCols, int[] basis, Action<string> logOutput) 
         {
             // gets the Pivot row by selecting the most negative RHS value.
