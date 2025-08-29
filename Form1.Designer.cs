@@ -73,7 +73,7 @@
             comboBox1.FlatStyle = FlatStyle.Flat;
             comboBox1.Font = new Font("Segoe UI", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 0);
             comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(5, 141);
+            comboBox1.Location = new Point(5, 100);
             comboBox1.Name = "comboBox1";
             comboBox1.Size = new Size(240, 31);
             comboBox1.TabIndex = 4;
@@ -81,7 +81,7 @@
             // 
             // btnLoadFile
             // 
-            btnLoadFile.Location = new Point(46, 44);
+            btnLoadFile.Location = new Point(46, 11);
             btnLoadFile.Name = "btnLoadFile";
             btnLoadFile.Size = new Size(144, 29);
             btnLoadFile.TabIndex = 5;
@@ -91,7 +91,7 @@
             // 
             // btnExport
             // 
-            btnExport.Location = new Point(46, 89);
+            btnExport.Location = new Point(46, 55);
             btnExport.Name = "btnExport";
             btnExport.Size = new Size(144, 29);
             btnExport.TabIndex = 6;
