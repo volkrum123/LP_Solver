@@ -19,6 +19,7 @@ namespace LP_Solver.Controllers
         private SensitivityAnalysis _sensitivity;
         private double[,] LastOptimalTableau;
         private List<int> LastBasicIndices;
+        private LPModel _currentModel;
 
 
 
@@ -34,56 +35,52 @@ namespace LP_Solver.Controllers
 
         public void SolveFromInput(string input, Action<string> logOutput)
         {
-            // Basic model
+            // parse, store and desplay model
             var model = _parser.Parse(input);
+            _currentModel = model;
             LogModelAndStandardform(model, logOutput );
-            //Initial Tablue
-            
+           
+            // Convertin model, executing primal simplex, and storing optimal solution
             var (tableau, ConstraintTypes) = _solver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
             logOutput("\r\nInitial Tableau:\r\n" +
                  _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
-
-           double[,] OptimalTable = _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+            double[,] OptimalTable = _solver.Solve(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
+            
+            // Sensitivity analysis
             LastOptimalTableau = OptimalTable;
             LastBasicIndices = _solver.GetBasicIndices();
-            // Initialize sensitivity
             _sensitivity = new SensitivityAnalysis(model, LastOptimalTableau, LastBasicIndices);
-
         }
 
         public void RevisedSolveFromInput(string input, Action<string> logOutput)
         {
             var model = _parser.Parse(input);
-            double[] solution = _revised.Solve(model, logOutput);
-            
+            _currentModel = model;
+            double[] solution = _revised.Solve(model, logOutput);  
         }
 
         public void DualSolveFromInput(string input, Action<string> logOutput)
         {
+            // parse, store and desplay model
             var model = _parser.Parse(input);
+            _currentModel = model;
             LogModelAndStandardform(model, logOutput);
-           
-            // Create tableau
+
+            // Convertin model, executing dual simplex, and storing optimal solution
             var (tableau, ConstraintTypes) = _dualSolver.CreateTableau(model);
             int numVariables = model.ObjectiveCoefficients.Count;
             int numConstraints = model.Constraints.Count;
-
-            // Print initial tableau
             logOutput("\r\nInitial Tableau:\r\n" +
                 _canonicalForm.TableauToString(tableau, numVariables, numConstraints, ConstraintTypes));
-
-            // Solve using dual simplex
             double[,] OptimalTable = _dualSolver.SolveDual(tableau, ConstraintTypes, logOutput, numVariables, numConstraints, model.ObjectiveType);
 
+            // Sensitivity analysis
             LastOptimalTableau = OptimalTable;
             LastBasicIndices = _dualSolver.GetBasicIndices();
-
             _sensitivity = new SensitivityAnalysis(model, LastOptimalTableau, LastBasicIndices);
-
         }
-
         public void BranchAndBoundSolveFromInput(string input, Action<string> logOutput)
         {
             var model = _parser.Parse(input);
@@ -155,11 +152,9 @@ namespace LP_Solver.Controllers
             string canonicalForm = _canonicalForm.ConvertToCanonicalFormSequential(model);// call your method here
             logOutput("\r\n" + canonicalForm + "\r\n");
         }
-
         public string SensitivityAnalysisFromInput(string operation, string userInput)
         {
-            if (_sensitivity == null)
-                return "No solution available. Solve a model first.";
+            if (_sensitivity == null) return "No solution available. Solve a model first.";
 
             switch (operation)
             {
@@ -177,24 +172,69 @@ namespace LP_Solver.Controllers
 
                 case "Apply Objective Coefficient Change":
                     if (ParseIndexValue(userInput, out int idxObj, out double valObj))
-                        return _sensitivity.ApplyNonBasicVariableChange(idxObj, valObj);
-                    return "Invalid input. Use format: index,value (e.g., 0,55)";
+                        return _sensitivity.ApplyNonBasicCoefficientChange(idxObj, valObj);
+                    return "Invalid input. Use format: index,value (e.g., 1,55)";
 
                 case "Apply RHS Change":
                     if (ParseIndexValue(userInput, out int idxRHS, out double valRHS))
                         return _sensitivity.ApplyRHSChange(idxRHS, valRHS);
-                    return "Invalid input. Use format: index,value (e.g., 1,25)";
+                    return "Invalid input. Use format: index,value (e.g., 0,25)";
 
                 case "Apply Variable Change":
-                    if (ParseIndexValue(userInput, out int idxVar, out double valVar))
-                        return _sensitivity.ApplyVariableChange(idxVar, valVar);
-                    return "Invalid input. Use format: index,value (e.g., 0,10)";
+                    string[] parts = userInput.Split(',');
+                    if (parts.Length == 3 &&
+                        int.TryParse(parts[0], out int cIdx) &&
+                        int.TryParse(parts[1], out int vIdx) &&
+                        double.TryParse(parts[2], out double val))
+                    {
+                        return _sensitivity.ApplyConstraintCoefficientChange(cIdx, vIdx, val);
+                    }
+                    return "Invalid input. Use format: constraintIndex,variableIndex,newValue (e.g., 1,0,8)";
 
                 default:
                     return "Invalid operation selected.";
-               }
-
             }
+        }
+
+        public string ReSolveAfterChange(Action<string> logOutput)
+        {
+            if (_sensitivity == null)
+                return "⚠ No solution available to re-solve. Please solve a model first.";
+
+            logOutput("\r\nRe-solving model after applied change...\r\n");
+
+            // Values calculated for sensitivity analysis
+            double[,] modifiedTableau = _sensitivity.GetOptimalTableau();
+            List<int> basicIndices = _sensitivity.GetBasicIndices();
+            int numVariables = _currentModel.NumVariables;
+            int numConstraints = _currentModel.Constraints.Count;
+            var solver = new SimplexSolver(); // replace with your actual solver class
+            var constraintTypes = Enumerable.Repeat("≤", numConstraints).ToList(); // or your actual constraint types
+
+            // Solves and prints the updated tablue
+            var newTableau = solver.Solve(modifiedTableau,constraintTypes, logOutput,numVariables,numConstraints, _currentModel.ObjectiveType);
+            List<int> newBasicIndices = solver.GetBasicIndices();
+            _sensitivity.UpdateAfterResolve(newTableau, newBasicIndices);
+            logOutput("\r\nUpdated Optimal Tableau:\r\n" +
+           _canonicalForm.TableauToString(newTableau, numVariables, numConstraints, constraintTypes));
+
+            // import analysis methods
+            string reduced = SensitivityAnalysisFromInput("Display Reduced Costs", "");
+            string shadow = SensitivityAnalysisFromInput("Display Shadow Prices", "");
+            string objRanges = SensitivityAnalysisFromInput("Display Objective Ranges", "");
+            string rhsRanges = SensitivityAnalysisFromInput("Display RHS Ranges", "");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("\r\n--- Updated Sensitivity Analysis ---");
+            sb.AppendLine(reduced);
+            sb.AppendLine(shadow);
+            sb.AppendLine(objRanges);
+            sb.AppendLine(rhsRanges);
+
+            return sb.ToString();
+            
+        }
+
         private bool ParseIndexValue(string input, out int index, out double value)
         {
             index = -1;
@@ -206,5 +246,6 @@ namespace LP_Solver.Controllers
             if (!double.TryParse(parts[1], out value)) return false;
             return true;
         }
+        
     }
 }

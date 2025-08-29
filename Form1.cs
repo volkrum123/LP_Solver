@@ -26,7 +26,7 @@ namespace LP_Solver
             comboBox1.SelectedIndex = 0;
 
             comboBoxSensitivity.Items.Clear();
-            comboBoxSensitivity.Items.Add("Select option:");
+            comboBoxSensitivity.Items.Add("Sensitivity Analysis:");
             comboBoxSensitivity.Items.Add("Display Reduced Costs");
             comboBoxSensitivity.Items.Add("Display Shadow Prices");
             comboBoxSensitivity.Items.Add("Display Objective Ranges");
@@ -102,16 +102,22 @@ namespace LP_Solver
                 }
             }
         }
-
         private void comboBoxSensitivity_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (comboBoxSensitivity.SelectedIndex <= 0) return;
 
             string operation = comboBoxSensitivity.SelectedItem.ToString();
-            string userInput = txtSensitivityInput.Text; // use separate text box for apply operations
-
+            string userInput = txtSensitivityInput.Text; // use separate text box for apply operation
             string result = _controller.SensitivityAnalysisFromInput(operation, userInput);
             txtOutput.AppendText(result + "\r\n");
+
+            // Apply operations trigger re-solve
+            if (operation.StartsWith("Apply"))
+            {
+                string updatedResults = _controller.ReSolveAfterChange(msg => txtOutput.AppendText(msg + "\r\n"));
+                txtOutput.AppendText(updatedResults + "\r\n");
+            }
+
         }
 
         private void AppendOutput(string text)

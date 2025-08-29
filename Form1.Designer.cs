@@ -38,13 +38,14 @@
             comboBoxSensitivity = new ComboBox();
             label2 = new Label();
             txtSensitivityInput = new TextBox();
+            label3 = new Label();
             panel1.SuspendLayout();
             SuspendLayout();
             // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(284, 21);
+            label1.Location = new Point(267, 16);
             label1.Name = "label1";
             label1.Size = new Size(176, 20);
             label1.TabIndex = 0;
@@ -52,20 +53,20 @@
             // 
             // txtInput
             // 
-            txtInput.Location = new Point(284, 46);
+            txtInput.Location = new Point(265, 46);
             txtInput.Multiline = true;
             txtInput.Name = "txtInput";
             txtInput.ScrollBars = ScrollBars.Vertical;
-            txtInput.Size = new Size(349, 150);
+            txtInput.Size = new Size(583, 150);
             txtInput.TabIndex = 1;
             // 
             // txtOutput
             // 
             txtOutput.Font = new Font("Consolas", 10.2F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            txtOutput.Location = new Point(284, 251);
+            txtOutput.Location = new Point(265, 239);
             txtOutput.Name = "txtOutput";
             txtOutput.ReadOnly = true;
-            txtOutput.Size = new Size(857, 327);
+            txtOutput.Size = new Size(891, 327);
             txtOutput.TabIndex = 3;
             txtOutput.Text = "";
             // 
@@ -115,17 +116,20 @@
             // 
             // comboBoxSensitivity
             // 
+            comboBoxSensitivity.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBoxSensitivity.FlatStyle = FlatStyle.Flat;
+            comboBoxSensitivity.Font = new Font("Segoe UI", 10.2F, FontStyle.Bold, GraphicsUnit.Point, 0);
             comboBoxSensitivity.FormattingEnabled = true;
-            comboBoxSensitivity.Location = new Point(39, 300);
+            comboBoxSensitivity.Location = new Point(5, 303);
             comboBoxSensitivity.Name = "comboBoxSensitivity";
-            comboBoxSensitivity.Size = new Size(151, 28);
+            comboBoxSensitivity.Size = new Size(240, 31);
             comboBoxSensitivity.TabIndex = 7;
             comboBoxSensitivity.SelectedIndexChanged += comboBoxSensitivity_SelectedIndexChanged;
             // 
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(285, 214);
+            label2.Location = new Point(265, 216);
             label2.Name = "label2";
             label2.Size = new Size(178, 20);
             label2.TabIndex = 8;
@@ -133,16 +137,26 @@
             // 
             // txtSensitivityInput
             // 
-            txtSensitivityInput.Location = new Point(754, 57);
+            txtSensitivityInput.Location = new Point(904, 46);
             txtSensitivityInput.Name = "txtSensitivityInput";
-            txtSensitivityInput.Size = new Size(125, 27);
+            txtSensitivityInput.Size = new Size(216, 27);
             txtSensitivityInput.TabIndex = 9;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(903, 14);
+            label3.Name = "label3";
+            label3.Size = new Size(179, 20);
+            label3.TabIndex = 10;
+            label3.Text = "Apply Sensitivity changes:";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1168, 592);
+            Controls.Add(label3);
             Controls.Add(txtSensitivityInput);
             Controls.Add(label2);
             Controls.Add(panel1);
@@ -170,5 +184,6 @@
         private Label label2;
         private ComboBox comboBoxSensitivity;
         private TextBox txtSensitivityInput;
+        private Label label3;
     }
 }
