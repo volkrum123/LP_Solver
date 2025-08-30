@@ -31,6 +31,7 @@ namespace LP_Solver.Controllers
             _bbSolver = new BranchAndBoundSolver();
             _canonicalForm = new CanonicalForm();
             _revised = new RevisedPrimal();
+            _cuttingPlaneSolver = new CuttingPlaneSolver();
         }
 
         public void SolveFromInput(string input, Action<string> logOutput)
