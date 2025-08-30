@@ -25,6 +25,7 @@ namespace LP_Solver
             comboBox1.Items.Add("Branch & Bound Simplex");
             comboBox1.Items.Add("Cutting Plane Algorithm");
             comboBox1.Items.Add("Branch & Bound Knapsack");
+            comboBox1.Items.Add("Non-Linear Solver");
             comboBox1.SelectedIndex = 0;
 
             comboBoxSensitivity.Items.Clear();
