@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -176,6 +177,93 @@ namespace LP_Solver.Models
                 sb.AppendLine();
             }
 
+        }
+
+        // Build knapsack tableau with ONLY x-columns + RHS.
+        // Row 0: z row (canonical for Max => -values), Row 1: single capacity constraint (weights).
+        public (double[,] tableau, string[] colHeaders, string[] rowHeaders)
+            BuildKnapsackXOnlyTableau(KnapsackModel ks, bool negateObjForMax = true)
+        {
+            int n = ks.Items.Count;
+            int rows = 2;         // z + C1
+            int cols = n + 1;     // x1..xn + RHS
+            var T = new double[rows, cols];
+
+            // z row
+            for (int j = 0; j < n; j++)
+                T[0, j] = negateObjForMax ? -ks.Items[j].Value : ks.Items[j].Value;
+            T[0, cols - 1] = 0;
+
+            // C1 row
+            for (int j = 0; j < n; j++)
+                T[1, j] = ks.Items[j].Weight;
+            T[1, cols - 1] = ks.Capacity;
+
+            var colsHdr = Enumerable.Range(1, n).Select(i => $"x{i}").Concat(new[] { "RHS" }).ToArray();
+            var rowsHdr = new[] { "z", "C1" };
+            return (T, colsHdr, rowsHdr);
+        }
+
+        public (double[,] tableau, string[] colHeaders, string[] rowHeaders)
+            BuildKnapsackXOnlyTableauWithDecisions(
+                KnapsackModel ks,
+                IEnumerable<(int index, int decision)> decisions,
+                bool negateObjForMax = true)
+        {
+            var (T, colsHdr, rowsHdr) = BuildKnapsackXOnlyTableau(ks, negateObjForMax);
+            int rhs = colsHdr.Length - 1;
+
+            foreach (var (idx, dec) in decisions)
+            {
+                if (dec == 1)
+                {
+                    T[0, rhs] += ks.Items[idx].Value;    // z RHS
+                    T[1, rhs] -= ks.Items[idx].Weight;   // capacity RHS
+                }
+                // zero the x-column (fixed)
+                T[0, idx] = 0;
+                T[1, idx] = 0;
+            }
+            return (T, colsHdr, rowsHdr);
+        }
+
+        public string TableauToStringCustom(
+            double[,] T,
+            IReadOnlyList<string> colHeaders,
+            IReadOnlyList<string> rowHeaders,
+            string title = "Initial Tableau:",
+            int pad = 8,
+            int decimals = 3)
+        {
+            int rows = T.GetLength(0);
+            int cols = T.GetLength(1);
+
+            var widths = colHeaders.Select(h => Math.Max(h.Length, pad)).ToArray();
+
+            string fmt(double v)
+            {
+                var s = Math.Round(v, decimals).ToString("0.###", CultureInfo.InvariantCulture);
+                return s == "-0" ? "0" : s;
+            }
+
+            for (int r = 0; r < rows; r++)
+                for (int c = 0; c < cols; c++)
+                    widths[c] = Math.Max(widths[c], fmt(T[r, c]).Length);
+
+            var sb = new StringBuilder();
+            sb.AppendLine(title);
+
+            sb.Append("     ");
+            for (int c = 0; c < cols; c++) sb.Append(colHeaders[c].PadLeft(widths[c]));
+            sb.AppendLine();
+
+            for (int r = 0; r < rows; r++)
+            {
+                string rowLabel = (r < rowHeaders.Count) ? rowHeaders[r] : $"R{r}";
+                sb.Append(rowLabel.PadRight(5));
+                for (int c = 0; c < cols; c++) sb.Append(fmt(T[r, c]).PadLeft(widths[c]));
+                sb.AppendLine();
+            }
             return sb.ToString();
         }
     }

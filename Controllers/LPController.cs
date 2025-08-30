@@ -1,9 +1,10 @@
-﻿using System;
+﻿using LP_Solver.Models;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using LP_Solver.Models;
+using System.Text.RegularExpressions;
 
 namespace LP_Solver.Controllers
 {
@@ -34,6 +35,7 @@ namespace LP_Solver.Controllers
             _cuttingPlaneSolver = new CuttingPlaneSolver();
         }
 
+        // ====================== PRIMAL SIMPLEX ======================
         public void SolveFromInput(string input, Action<string> logOutput)
         {
             // parse, store and desplay model
@@ -62,6 +64,7 @@ namespace LP_Solver.Controllers
             double[] solution = _revised.Solve(model, logOutput);  
         }
 
+        // ====================== DUAL SIMPLEX ======================
         public void DualSolveFromInput(string input, Action<string> logOutput)
         {
             // parse, store and desplay model

@@ -190,7 +190,6 @@ namespace LP_Solver.Models
             string rhs = Regex.Match(line, @"-?\d*\.?\d+\s*$").Value;
             string c = string.Join(" ", terms) + " " + op + " " + rhs;
             return c;
-            
         }
         private void EnsureVariableInfo(LPModel model, int idx) //Integer and binary extraction logic used by the parse method.
         {

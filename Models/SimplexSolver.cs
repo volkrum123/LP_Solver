@@ -128,7 +128,7 @@ namespace LP_Solver.Models
                     }
                 }
             }
-            if(pivotCol == -1)
+            if (pivotCol == -1)
             {
                 return false;
             }
@@ -136,13 +136,13 @@ namespace LP_Solver.Models
             // Gets the pivot row by dividing the rhs values with the values in the pivot columns and choosing the smallest positive ratios.
             int pivotRow = -1;
             double minRatio = double.MaxValue;
-            for(int i =1; i <= numConstraints; i++)
+            for (int i = 1; i <= numConstraints; i++)
             {
-                double pivotVal = tableau[i,pivotCol];
-                if(pivotVal > 1e-9)
+                double pivotVal = tableau[i, pivotCol];
+                if (pivotVal > 1e-9)
                 {
-                    double ratio = tableau[i,numCols - 1]/pivotVal;
-                    if(ratio < minRatio)
+                    double ratio = tableau[i, numCols - 1] / pivotVal;
+                    if (ratio < minRatio)
                     {
                         minRatio = ratio;
                         pivotRow = i;
@@ -161,15 +161,24 @@ namespace LP_Solver.Models
             double pivotElement = tableau[pivotRow, pivotCol];
             for(int j = 0; j < numCols; j++)
             {
-                tableau[pivotRow,j] /= pivotElement; 
+                logOutput("\r\nSolution is Unbounded.\r\n");
+                return false; // Stop iterations
             }
-            for(int i = 0;i <= numConstraints; i++)
+
+            // gets the pivoting point where the pivot row and columns interconnnects, And then diveds each column with that value.
+            basis[pivotRow - 1] = pivotCol;
+            double pivotElement = tableau[pivotRow, pivotCol];
+            for (int j = 0; j < numCols; j++)
+            {
+                tableau[pivotRow, j] /= pivotElement;
+            }
+            for (int i = 0; i <= numConstraints; i++)
             {
                 if (i == pivotRow) continue;
                 double factor = tableau[i, pivotCol];
-                for(int j = 0;j < numCols; j++)
+                for (int j = 0; j < numCols; j++)
                 {
-                    tableau[i,j] -= factor * tableau[pivotRow,j];
+                    tableau[i, j] -= factor * tableau[pivotRow, j];
                 }
             }
             return true; //Returns the iterated table
