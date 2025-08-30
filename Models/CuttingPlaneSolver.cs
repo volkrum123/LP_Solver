@@ -35,7 +35,7 @@ namespace LP_Solver.Models
             integerSolutionFound = IsIntegerFeasible(tableau, integerVariableIndices, result);
             if (integerSolutionFound)
             {
-                result.AppendLine("✅ Initial solution is already integer feasible!");
+                result.AppendLine("Initial solution is already integer feasible!");
                 ExtractSolution(tableau, integerVariableIndices, model, result);
                 return result.ToString();
             }
@@ -50,7 +50,7 @@ namespace LP_Solver.Models
                 if (!GenerateAndAddCut(ref tableau, ref constraintTypes, ref numConstraints, integerVariableIndices, result))
                 {
                     infeasible = true;
-                    result.AppendLine("❌ Problem is infeasible.");
+                    result.AppendLine("Problem is infeasible.");
                     break;
                 }
 
@@ -81,16 +81,16 @@ namespace LP_Solver.Models
 
             if (integerSolutionFound)
             {
-                result.AppendLine("✅ Integer feasible solution found!");
+                result.AppendLine("Integer feasible solution found!");
                 ExtractSolution(tableau, integerVariableIndices, model, result);
             }
             else if (infeasible)
             {
-                result.AppendLine("❌ Problem is infeasible.");
+                result.AppendLine(" Problem is infeasible.");
             }
             else if (iteration >= 100)
             {
-                result.AppendLine("❌ Iteration limit reached without finding integer solution.");
+                result.AppendLine("Iteration limit reached without finding integer solution.");
             }
 
             return result.ToString();
