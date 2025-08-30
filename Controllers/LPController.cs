@@ -92,32 +92,29 @@ namespace LP_Solver.Controllers
             }
             _bbSolver.SolveBranchAndBound(model, logOutput);
         }
-        public void CuttingPlaneSolveFromInput(string input, Action<string> logOutput)  // Keep as internal
+        public void CuttingPlaneSolveFromInput(string input, Action<string> logOutput)
         {
-            var model = _parser.Parse(input);
-
-            // Ensure IntegerIndices is not null
-            if (model.IntegerIndices == null)
+            try
             {
-                model.IntegerIndices = new List<int>();
+                // Parse the input model
+                var parser = new LPParser();
+                LPModel model = parser.Parse(input);
+
+                // Log the model and canonical form
+                LogModelAndStandardform(model, logOutput);
+
+                // Create and run the cutting plane solver
+                var cuttingPlaneSolver = new CuttingPlaneSolver();
+                string result = cuttingPlaneSolver.Solve(model, logOutput);
+
+                logOutput(result);
             }
-
-            // If no integer variables specified, use all variables as integer
-            if (model.IntegerIndices.Count == 0)
+            catch (Exception ex)
             {
-                logOutput("No integer variables specified. Using all variables as integer.\n");
-                for (int i = 0; i < model.ObjectiveCoefficients.Count; i++)
-                    model.IntegerIndices.Add(i);
-            }
-
-            var result = _cuttingPlaneSolver.Solve(model, logOutput);
-
-            // You can access the result object for further processing if needed
-            if (result.SolutionFound)
-            {
-                logOutput($"Optimal objective value: {result.ObjectiveValue}\n");
+                logOutput($"Error: {ex.Message}");
             }
         }
+        
         public void LogModelAndStandardform(LPModel model, Action<string> logOutput)
         {
             logOutput($"Objective: {model.ObjectiveType}\r\n");

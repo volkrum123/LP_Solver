@@ -11,7 +11,10 @@ namespace LP_Solver.Models
     internal class DuelSimplexSolver
     {
         private List<int> _lastBasisIndices;
-        public (double[,],List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the dual simplex simplex.
+        
+
+
+        /*public (double[,],List<string>) CreateTableau(LPModel model) // Takes the parsed model and transforms it to its standard form which is then written in Tableaur form to be used by the dual simplex simplex.
         {
             //Saves the parsed objective function,constraints and sign restrictions in variables to be used by the method
             int numVariables = model.ObjectiveCoefficients.Count;
@@ -78,17 +81,94 @@ namespace LP_Solver.Models
             }
 
             return (tableau, constraintTypes);
+        }*/
+        public (double[,], List<string>) CreateTableau(LPModel model)
+        {
+            int numVariables = model.ObjectiveCoefficients.Count;
+            int numConstraints = model.Constraints.Count;
+            int width = numVariables + numConstraints + 1;
+            int height = numConstraints + 1;
+            double[,] tableau = new double[height, width];
+            var constraintTypes = new List<string>();
+
+            // Set objective coefficients
+            for (int j = 0; j < numVariables; j++)
+            {
+                double coeff = model.ObjectiveCoefficients[j];
+                // For minimization, we need to convert to maximization of -z
+                tableau[0, j] = model.ObjectiveType.ToLower() == "min" ? coeff : -coeff;
+            }
+
+            // Process constraints
+            for (int i = 0; i < numConstraints; i++)
+            {
+                string constraint = model.Constraints[i];
+                bool isLE = constraint.Contains("<=");
+                bool isGE = constraint.Contains(">=");
+                int slackCol = numVariables + i;
+
+                // Parse coefficients
+                var coeffMatches = Regex.Matches(constraint, @"([+-]?\d*\.?\d*)\s*\*?\s*x(\d+)");
+                foreach (Match match in coeffMatches)
+                {
+                    string coeffStr = match.Groups[1].Value.Trim();
+                    string varIndexStr = match.Groups[2].Value;
+                    int varIndex = int.Parse(varIndexStr) - 1;
+
+                    double coeff = string.IsNullOrWhiteSpace(coeffStr) || coeffStr == "+" ? 1.0 :
+                                   coeffStr == "-" ? -1.0 : double.Parse(coeffStr);
+
+                    tableau[i + 1, varIndex] = coeff;
+                }
+
+                // Parse RHS
+                var rhsMatch = Regex.Match(constraint, @"-?\d*\.?\d+\s*$");
+                double rhs = rhsMatch.Success ? double.Parse(rhsMatch.Value) : 0;
+
+                // Handle constraint types
+                if (isLE)
+                {
+                    tableau[i + 1, slackCol] = 1.0; // slack variable
+                    constraintTypes.Add("<=");
+                }
+                else if (isGE)
+                {
+                    // For ≥ constraints, multiply by -1 to convert to ≤ form
+                    for (int j = 0; j < numVariables; j++)
+                        tableau[i + 1, j] *= -1;
+
+                    tableau[i + 1, slackCol] = 1.0; // slack variable for the converted constraint
+                    rhs *= -1; // flip RHS
+                    constraintTypes.Add(">=");
+                }
+                else // equality constraint
+                {
+                    tableau[i + 1, slackCol] = 1.0;
+                    constraintTypes.Add("=");
+                }
+
+                // Assign RHS
+                tableau[i + 1, width - 1] = rhs;
+            }
+
+            return (tableau, constraintTypes);
         }
-        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)// The method used to execute the dual simplex.
+        /*public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)// The method used to execute the dual simplex.
         {
             int[] basis = new int[numConstraints];
             int iteration = 1;
+            int maxIterations = Math.Max(500, numConstraints * (tableau.GetLength(1) - 1) * 5); // safety cap
             var headers = new CanonicalForm();
 
-            while (PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput)) // Calls the iteration method to perform dual logic.
+            while (iteration <= maxIterations && PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput)) // Calls the iteration method to perform dual logic.
             {
                 logOutput($"\r\nDual Iteration {iteration++}:\r\n");
                 logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes)); // Labels rows and columns with headers
+            }
+
+            if (iteration > maxIterations)
+            {
+                logOutput("\r\nDual simplex iteration cap reached; possible degeneracy/cycling. Proceeding with current tableau.\r\n");
             }
 
             logOutput("\r\nDual simplex phase completed.\r\n");
@@ -121,6 +201,131 @@ namespace LP_Solver.Models
             {
                 logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
                 _lastBasisIndices = new List<int>(basis);
+            }
+            return tableau;
+        }*/
+        /*public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        {
+            int[] basis = new int[numConstraints];
+            int iteration = 1;
+            int maxIterations = Math.Max(500, numConstraints * (tableau.GetLength(1) - 1) * 5);
+            var headers = new CanonicalForm();
+
+            // For minimization, we need to convert to maximization of -z
+            if (objectiveType.ToLower() == "min")
+            {
+                for (int j = 0; j < numVariables; j++)
+                {
+                    tableau[0, j] = -tableau[0, j];
+                }
+            }
+
+            while (iteration <= maxIterations && PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput))
+            {
+                logOutput($"\r\nDual Iteration {iteration++}:\r\n");
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+            }
+
+            if (iteration > maxIterations)
+            {
+                logOutput("\r\nDual simplex iteration cap reached; possible degeneracy/cycling. Proceeding with current tableau.\r\n");
+            }
+
+            logOutput("\r\nDual simplex phase completed.\r\n");
+            logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+
+            // Check optimality
+            bool primalOptimal = true;
+            for (int j = 0; j < numVariables; j++)
+            {
+                double coeff = tableau[0, j];
+                if (coeff < -1e-9)
+                {
+                    primalOptimal = false;
+                    break;
+                }
+            }
+
+            if (!primalOptimal)
+            {
+                logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
+                var primalSolver = new SimplexSolver();
+                tableau = primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
+            }
+            else
+            {
+                logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
+
+                // Convert back for minimization
+                if (objectiveType.ToLower() == "min")
+                {
+                    tableau[0, tableau.GetLength(1) - 1] = -tableau[0, tableau.GetLength(1) - 1];
+                }
+            }
+            return tableau;
+        }*/
+        public double[,] SolveDual(double[,] tableau, List<string> constraintTypes, Action<string> logOutput, int numVariables, int numConstraints, string objectiveType)
+        {
+            int[] basis = new int[numConstraints];
+            int iteration = 1;
+            int maxIterations = Math.Max(500, numConstraints * (tableau.GetLength(1) - 1) * 5);
+            var headers = new CanonicalForm();
+
+            // For minimization, we need to convert to maximization of -z
+            if (objectiveType.ToLower() == "min")
+            {
+                for (int j = 0; j < numVariables; j++)
+                {
+                    tableau[0, j] = -tableau[0, j];
+                }
+            }
+
+            while (iteration <= maxIterations && PerformDualIteration(tableau, numConstraints, tableau.GetLength(1), basis, logOutput))
+            {
+                logOutput($"\r\nDual Iteration {iteration++}:\r\n");
+                logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+            }
+
+            if (iteration > maxIterations)
+            {
+                logOutput("\r\nDual simplex iteration cap reached; possible degeneracy/cycling. Proceeding with current tableau.\r\n");
+            }
+
+            logOutput("\r\nDual simplex phase completed.\r\n");
+            logOutput(headers.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+
+            // Check optimality
+            bool primalOptimal = true;
+            for (int j = 0; j < numVariables; j++)
+            {
+                double coeff = tableau[0, j];
+                if (coeff < -1e-9)
+                {
+                    primalOptimal = false;
+                    break;
+                }
+            }
+
+            if (!primalOptimal)
+            {
+                logOutput("\r\nTableau is not fully optimal — switching to primal simplex...\r\n");
+                var primalSolver = new SimplexSolver();
+                tableau = primalSolver.Solve(tableau, constraintTypes, logOutput, numVariables, numConstraints, objectiveType);
+            }
+            else
+            {
+                logOutput("\r\nDual simplex: Optimal solution reached.\r\n");
+
+                // Convert back for minimization - FIXED
+                if (objectiveType.ToLower() == "min")
+                {
+                    // Convert the objective row back to minimization form
+                    for (int j = 0; j < numVariables; j++)
+                    {
+                        tableau[0, j] = -tableau[0, j];
+                    }
+                    // The RHS value is already correct for minimization
+                }
             }
             return tableau;
         }

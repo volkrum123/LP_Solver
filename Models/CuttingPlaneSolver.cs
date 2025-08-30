@@ -1,320 +1,449 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace LP_Solver.Models
 {
+
     internal class CuttingPlaneSolver
     {
-        private const double Tolerance = 1e-6;
-        private readonly SimplexSolver _simplexSolver;
-        private readonly DuelSimplexSolver _dualSimplexSolver;
-        private readonly CanonicalForm _canonicalForm;
-
-        public CuttingPlaneSolver()
+        public string Solve(LPModel model, Action<string> logOutput)
         {
-            _simplexSolver = new SimplexSolver();
-            _dualSimplexSolver = new DuelSimplexSolver();
-            _canonicalForm = new CanonicalForm();
-        }
+            StringBuilder result = new StringBuilder();
+            result.AppendLine("=== Cutting Plane Method for Integer Programming ===");
+            result.AppendLine($"Problem Type: {model.ObjectiveType}");
 
-        internal CuttingPlaneResult Solve(LPModel model, Action<string> logOutput)  // Changed to internal
-        {
-            // Handle null logOutput by creating a default action
-            Action<string> safeLogOutput = logOutput ?? (s => { });
+            // Ensure we have integer variables
+            List<int> integerVariableIndices = EnsureIntegerVariables(model, result);
+            result.AppendLine($"Integer Variables: {string.Join(", ", integerVariableIndices.Select(i => $"x{i + 1}"))}");
 
-            var result = new CuttingPlaneResult();
-            safeLogOutput("Starting Cutting Plane Algorithm (Gomory Cuts)\n");
-            safeLogOutput($"Objective: {model.ObjectiveType}\n");
-
-            // Ensure IntegerIndices is not null
-            if (model.IntegerIndices == null)
-            {
-                model.IntegerIndices = new List<int>();
-            }
-
-            if (model.IntegerIndices.Count > 0)
-            {
-                safeLogOutput($"Variables to be integer: {string.Join(", ", model.IntegerIndices.Select(i => $"x{i + 1}"))}\n\n");
-            }
-            else
-            {
-                safeLogOutput("No integer variables specified. Using all variables as integer.\n");
-                model.IntegerIndices = Enumerable.Range(0, model.ObjectiveCoefficients.Count).ToList();
-            }
-
-            // Create initial tableau using SimplexSolver
-            var (tableau, constraintTypes) = _simplexSolver.CreateTableau(model);
-            int numVariables = model.ObjectiveCoefficients.Count;
-            int numConstraints = model.Constraints.Count;
             int iteration = 0;
-            bool optimalIntegerSolution = false;
+            bool integerSolutionFound = false;
+            bool infeasible = false;
 
-            safeLogOutput("Initial Tableau:\n");
-            safeLogOutput(_canonicalForm.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+            // Create and solve initial tableau
+            var (tableau, constraintTypes, numVariables, numConstraints) = CreateAndSolveInitialTableau(model, result);
 
-            // Store initial tableau
-            result.Iterations.Add(new CuttingPlaneIteration
+            // Display initial solution
+            var canonicalForm = new CanonicalForm();
+            result.AppendLine(canonicalForm.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+
+            // Check if current solution is integer feasible
+            integerSolutionFound = IsIntegerFeasible(tableau, integerVariableIndices, result);
+            if (integerSolutionFound)
             {
-                Iteration = iteration,
-                Tableau = (double[,])tableau.Clone(),
-                Message = "Initial Tableau"
-            });
+                result.AppendLine("✅ Initial solution is already integer feasible!");
+                ExtractSolution(tableau, integerVariableIndices, model, result);
+                return result.ToString();
+            }
 
-            while (!optimalIntegerSolution && iteration < 100) // Safety limit on iterations
+            while (!integerSolutionFound && !infeasible && iteration < 100)
             {
                 iteration++;
-                safeLogOutput($"\n--- Cutting Plane Iteration {iteration} ---\n");
-
-                // Solve the LP relaxation using dual simplex
-                tableau = _dualSimplexSolver.SolveDual(tableau, constraintTypes,
-                    msg => {
-                        if (msg.Contains("Iteration") || msg.Contains("Optimal"))
-                            safeLogOutput(msg);
-                    },
-                    numVariables, numConstraints, model.ObjectiveType);
-
-                // Check if solution is integer for required variables
-                if (IsIntegerSolution(tableau, model.IntegerIndices, numVariables, numConstraints))
-                {
-                    optimalIntegerSolution = true;
-                    safeLogOutput("\nInteger optimal solution found!\n");
-                    result.SolutionFound = true;
-                    break;
-                }
+                result.AppendLine($"\n--- Iteration {iteration} ---");
 
                 // Generate and add Gomory cut
-                int cutRow = FindMostFractionalRow(tableau, model.IntegerIndices, numVariables, numConstraints);
-                if (cutRow == -1)
+                result.AppendLine("Generating Gomory cut...");
+                if (!GenerateAndAddCut(ref tableau, ref constraintTypes, ref numConstraints, integerVariableIndices, result))
                 {
-                    safeLogOutput("No suitable row found for generating cut\n");
-                    result.SolutionFound = false;
+                    infeasible = true;
+                    result.AppendLine("❌ Problem is infeasible.");
                     break;
                 }
 
-                safeLogOutput($"Generating Gomory cut from row {cutRow}\n");
-                tableau = AddGomoryCut(tableau, cutRow, numVariables, numConstraints);
-                numConstraints++; // We adding a new constraint
+                // Display tableau with cut added
+                result.AppendLine("Tableau with cut added:");
+                result.AppendLine(canonicalForm.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
 
-                // Update constraintTypes for the new cut
-                constraintTypes.Add("<=");
-
-                safeLogOutput($"Tableau after adding cut:\n");
-                safeLogOutput(_canonicalForm.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
-
-                // Store iteration data
-                result.Iterations.Add(new CuttingPlaneIteration
+                // Solve with dual simplex
+                try
                 {
-                    Iteration = iteration,
-                    Tableau = (double[,])tableau.Clone(),
-                    Message = $"Added Gomory cut from row {cutRow}"
-                });
+                    var dualSolver = new DuelSimplexSolver();
+                    tableau = dualSolver.SolveDual(tableau, constraintTypes, s => { }, // Don't log during dual simplex
+                        numVariables, numConstraints, model.ObjectiveType);
+
+                    // Display updated tableau
+                    result.AppendLine("Tableau after dual simplex:");
+                    result.AppendLine(canonicalForm.TableauToString(tableau, numVariables, numConstraints, constraintTypes));
+
+                    // Check if current solution is integer feasible
+                    integerSolutionFound = IsIntegerFeasible(tableau, integerVariableIndices, result);
+                }
+                catch (Exception ex)
+                {
+                    result.AppendLine($"Error in dual simplex: {ex.Message}");
+                    break;
+                }
             }
 
-            if (optimalIntegerSolution)
+            if (integerSolutionFound)
             {
-                result.FinalTableau = tableau;
-                result.ObjectiveValue = ExtractObjectiveValue(tableau);
-                result.VariableValues = ExtractVariableValues(tableau, numVariables, numConstraints);
-                PrintSolution(tableau, numVariables, numConstraints, safeLogOutput);
+                result.AppendLine("✅ Integer feasible solution found!");
+                ExtractSolution(tableau, integerVariableIndices, model, result);
+            }
+            else if (infeasible)
+            {
+                result.AppendLine("❌ Problem is infeasible.");
+            }
+            else if (iteration >= 100)
+            {
+                result.AppendLine("❌ Iteration limit reached without finding integer solution.");
+            }
+
+            return result.ToString();
+        }
+
+        private List<int> EnsureIntegerVariables(LPModel model, StringBuilder result)
+        {
+            List<int> integerVariableIndices = new List<int>();
+
+            // Check IntegerIndices
+            if (model.IntegerIndices != null && model.IntegerIndices.Count > 0)
+            {
+                integerVariableIndices.AddRange(model.IntegerIndices);
+            }
+
+            // Check Variables for integer type
+            for (int i = 0; i < model.Variables.Count; i++)
+            {
+                if (model.Variables[i].Type == VariableType.Integer && !integerVariableIndices.Contains(i))
+                {
+                    integerVariableIndices.Add(i);
+                }
+            }
+
+            // If still no integer variables, assume all are integer
+            if (integerVariableIndices.Count == 0)
+            {
+                for (int i = 0; i < model.ObjectiveCoefficients.Count; i++)
+                {
+                    integerVariableIndices.Add(i);
+                }
+                result.AppendLine("Assuming all variables are integer for this integer programming problem.");
+            }
+
+            return integerVariableIndices;
+        }
+
+        private (double[,] tableau, List<string> constraintTypes, int numVariables, int numConstraints)
+            CreateAndSolveInitialTableau(LPModel model, StringBuilder result)
+        {
+            int numVariables = model.NumVariables;
+            int numConstraints = model.Constraints.Count;
+
+            // For minimization with >= constraints, use dual simplex
+            if (model.ObjectiveType.Equals("Min", StringComparison.OrdinalIgnoreCase) &&
+                model.Constraints.Any(c => c.Contains(">=")))
+            {
+                result.AppendLine("Using dual simplex for minimization with >= constraints");
+                var dualSolver = new DuelSimplexSolver();
+                var (tableau, constraintTypes) = dualSolver.CreateTableau(model);
+
+                // Solve with dual simplex
+                tableau = dualSolver.SolveDual(tableau, constraintTypes, s => { },
+                    numVariables, numConstraints, model.ObjectiveType);
+
+                return (tableau, constraintTypes, numVariables, numConstraints);
             }
             else
             {
-                safeLogOutput("\nCutting plane algorithm terminated without finding integer solution\n");
-            }
+                // Use standard simplex for other cases
+                var simplexSolver = new SimplexSolver();
+                var (tableau, constraintTypes) = simplexSolver.CreateTableau(model);
 
-            return result;
+                // Solve the LP relaxation
+                tableau = simplexSolver.Solve(tableau, constraintTypes, s => { },
+                    numVariables, numConstraints, model.ObjectiveType);
+
+                return (tableau, constraintTypes, numVariables, numConstraints);
+            }
         }
 
-        // The rest of the methods remain the same
-        private bool IsIntegerSolution(double[,] tableau, List<int> integerIndices, int numVariables, int numConstraints)
+        private bool IsIntegerFeasible(double[,] tableau, List<int> integerVariableIndices, StringBuilder result)
         {
-            if (integerIndices == null || integerIndices.Count == 0) return true;
+            int rhsColumn = tableau.GetLength(1) - 1;
+            int rows = tableau.GetLength(0);
 
-            int rhsCol = tableau.GetLength(1) - 1;
+            // Create a dictionary to store variable values
+            Dictionary<int, double> variableValues = new Dictionary<int, double>();
 
-            foreach (int varIndex in integerIndices)
+            // Initialize all variables to 0
+            for (int i = 0; i < integerVariableIndices.Max() + 1; i++)
             {
-                // Check if this variable is basic
-                for (int row = 1; row <= numConstraints; row++)
+                variableValues[i] = 0;
+            }
+
+            // Find basic variables and their values
+            for (int row = 1; row < rows; row++)
+            {
+                for (int col = 0; col < rhsColumn; col++)
                 {
-                    if (Math.Abs(tableau[row, varIndex] - 1) < Tolerance)
+                    if (Math.Abs(tableau[row, col] - 1) < 1e-6)
                     {
-                        double value = tableau[row, rhsCol];
-                        if (Math.Abs(value - Math.Round(value)) > Tolerance)
-                            return false;
+                        // This is a basic variable
+                        variableValues[col] = tableau[row, rhsColumn];
                         break;
                     }
+                }
+            }
+
+            // Check integer feasibility
+            foreach (int varIndex in integerVariableIndices)
+            {
+                double value = variableValues[varIndex];
+                if (Math.Abs(value - Math.Round(value)) > 1e-6)
+                {
+                    result.AppendLine($"Variable x{varIndex + 1} is fractional: {value}");
+                    return false;
                 }
             }
 
             return true;
         }
 
-        private int FindMostFractionalRow(double[,] tableau, List<int> integerIndices, int numVariables, int numConstraints)
+        private bool GenerateAndAddCut(ref double[,] tableau, ref List<string> constraintTypes, ref int numConstraints,
+    List<int> integerVariableIndices, StringBuilder result)
         {
-            if (integerIndices == null || integerIndices.Count == 0) return -1;
+            int rows = tableau.GetLength(0);
+            int cols = tableau.GetLength(1);
+            int rhsColumn = cols - 1;
 
-            int rhsCol = tableau.GetLength(1) - 1;
-            double maxFractionality = 0;
-            int selectedRow = -1;
+            // Find the most fractional basic integer variable using hybrid strategy
+            int selectedRow = SelectCutRow(tableau, integerVariableIndices, result);
 
-            for (int row = 1; row <= numConstraints; row++)
+            if (selectedRow == -1)
             {
-                // Find which variable is basic in this row
-                for (int col = 0; col < numVariables; col++)
-                {
-                    if (Math.Abs(tableau[row, col] - 1) < Tolerance && integerIndices.Contains(col))
-                    {
-                        double value = tableau[row, rhsCol];
-                        double fractionality = Math.Min(value - Math.Floor(value), Math.Ceiling(value) - value);
-
-                        if (fractionality > maxFractionality)
-                        {
-                            maxFractionality = fractionality;
-                            selectedRow = row;
-                        }
-                        break;
-                    }
-                }
+                result.AppendLine("No fractional integer variables found for cut generation.");
+                return false;
             }
 
-            return selectedRow;
-        }
+            // Create new tableau with additional row and column
+            int newRows = rows + 1;
+            int newCols = cols + 1;
+            double[,] newTableau = new double[newRows, newCols];
 
-        private double[,] AddGomoryCut(double[,] tableau, int sourceRow, int numVariables, int numConstraints)
-        {
-            int oldRows = tableau.GetLength(0);
-            int oldCols = tableau.GetLength(1);
-            int rhsCol = oldCols - 1;
-
-            // Create new tableau with one additional row and column
-            double[,] newTableau = new double[oldRows + 1, oldCols + 1];
-
-            // Copy old tableau
-            for (int i = 0; i < oldRows; i++)
+            // Copy existing tableau to new tableau, preserving RHS as the last column
+            for (int i = 0; i < rows; i++)
             {
-                for (int j = 0; j < oldCols; j++)
+                // Copy all columns except RHS
+                for (int j = 0; j < cols - 1; j++)
                 {
                     newTableau[i, j] = tableau[i, j];
                 }
-            }
 
-            // Add new slack variable column (initialize to 0)
-            for (int i = 0; i < oldRows; i++)
-            {
-                newTableau[i, oldCols] = 0;
+                // Set the new slack column to 0 for existing rows
+                newTableau[i, newCols - 2] = 0;
+
+                // Copy RHS value to the new last column
+                newTableau[i, newCols - 1] = tableau[i, rhsColumn];
             }
 
             // Generate Gomory cut coefficients
-            for (int j = 0; j < oldCols; j++)
+            for (int j = 0; j < cols - 1; j++) // Exclude RHS column
             {
-                double value = tableau[sourceRow, j];
+                double value = tableau[selectedRow, j];
                 double fractionalPart = value - Math.Floor(value);
-                newTableau[oldRows, j] = -fractionalPart;
+                newTableau[rows, j] = -fractionalPart;
             }
 
-            // Set coefficient for new slack variable to 1
-            newTableau[oldRows, oldCols] = 1;
+            // Set RHS for the cut (in the last column)
+            double rhsValue = tableau[selectedRow, rhsColumn];
+            double rhsFractional = rhsValue - Math.Floor(rhsValue);
+            newTableau[rows, newCols - 1] = -rhsFractional;
 
-            // Set RHS for new row
-            double rhsValue = tableau[sourceRow, rhsCol];
-            double fractionalRhs = rhsValue - Math.Floor(rhsValue);
-            newTableau[oldRows, rhsCol + 1] = -fractionalRhs;
+            // Set slack variable coefficient (in the new column)
+            newTableau[rows, newCols - 2] = 1;
 
-            return newTableau;
+            // Update the tableau and constraint types
+            tableau = newTableau;
+            constraintTypes.Add("<=");
+            numConstraints++;
+
+            result.AppendLine($"Generated Gomory cut from row {selectedRow}");
+            result.AppendLine($"Cut: {FormatCut(newTableau, rows, integerVariableIndices, numConstraints, constraintTypes)}");
+
+            return true;
         }
-
-        private double ExtractObjectiveValue(double[,] tableau)
+        private int SelectCutRow(double[,] tableau, List<int> integerVariableIndices, StringBuilder result)
         {
-            int rhsCol = tableau.GetLength(1) - 1;
-            return tableau[0, rhsCol];
-        }
+            int rows = tableau.GetLength(0);
+            int cols = tableau.GetLength(1);
+            int rhsColumn = cols - 1;
 
-        private double[] ExtractVariableValues(double[,] tableau, int numVariables, int numConstraints)
-        {
-            int rhsCol = tableau.GetLength(1) - 1;
-            double[] values = new double[numVariables];
+            List<CutRowCandidate> candidates = new List<CutRowCandidate>();
 
-            for (int j = 0; j < numVariables; j++)
+            for (int row = 1; row < rows; row++)
             {
-                values[j] = 0;
-
-                // Check if this variable is basic
-                for (int i = 1; i <= numConstraints; i++)
+                // Find the basic variable in this row
+                int basicVarIndex = -1;
+                for (int col = 0; col < rhsColumn; col++)
                 {
-                    if (Math.Abs(tableau[i, j] - 1) < Tolerance)
+                    if (Math.Abs(tableau[row, col] - 1) < 1e-6)
                     {
-                        values[j] = tableau[i, rhsCol];
+                        basicVarIndex = col;
+                        break;
+                    }
+                }
+
+                // Check if this is an integer variable
+                if (basicVarIndex != -1 && integerVariableIndices.Contains(basicVarIndex))
+                {
+                    double rhsValue = tableau[row, rhsColumn];
+                    double fractionalPart = rhsValue - Math.Floor(rhsValue);
+
+                    // Calculate distance from integer
+                    double distance = Math.Min(fractionalPart, 1 - fractionalPart);
+
+                    // Calculate sum of fractional parts of coefficients
+                    double sumFractionalParts = 0;
+                    for (int j = 0; j < rhsColumn; j++)
+                    {
+                        double coeff = tableau[row, j];
+                        sumFractionalParts += coeff - Math.Floor(coeff);
+                    }
+
+                    candidates.Add(new CutRowCandidate
+                    {
+                        Row = row,
+                        BasicVarIndex = basicVarIndex,
+                        DistanceFromInteger = distance,
+                        SumFractionalParts = sumFractionalParts
+                    });
+                }
+            }
+
+            if (candidates.Count == 0)
+                return -1;
+
+            // Select row with largest distance from integer
+            var selectedCandidate = candidates
+                .OrderByDescending(c => c.DistanceFromInteger)
+                .ThenByDescending(c => c.SumFractionalParts) // For ties, use stronger cut
+                .ThenBy(c => c.Row) // For further ties, use lowest row index
+                .First();
+
+            result.AppendLine($"Selected row {selectedCandidate.Row} for variable x{selectedCandidate.BasicVarIndex + 1}");
+            result.AppendLine($"Distance from integer: {selectedCandidate.DistanceFromInteger:0.####}");
+            result.AppendLine($"Sum of fractional parts: {selectedCandidate.SumFractionalParts:0.####}");
+
+            return selectedCandidate.Row;
+        }
+
+        private class CutRowCandidate
+        {
+            public int Row { get; set; }
+            public int BasicVarIndex { get; set; }
+            public double DistanceFromInteger { get; set; }
+            public double SumFractionalParts { get; set; }
+        }
+
+        private string FormatCut(double[,] tableau, int cutRow, List<int> integerVariableIndices, int numConstraints, List<string> constraintTypes)
+        {
+            StringBuilder cut = new StringBuilder();
+            bool firstTerm = true;
+            int cols = tableau.GetLength(1);
+            int rhsColumn = cols - 1;
+
+            // Add decision variables
+            for (int j = 0; j < integerVariableIndices.Count; j++)
+            {
+                int varIndex = integerVariableIndices[j];
+                if (varIndex >= rhsColumn) continue;
+
+                double coeff = tableau[cutRow, varIndex];
+                if (Math.Abs(coeff) > 1e-6)
+                {
+                    if (!firstTerm && coeff > 0) cut.Append(" + ");
+                    if (coeff < 0) cut.Append(" - ");
+
+                    cut.Append($"{Math.Abs(coeff):0.###}x{varIndex + 1}");
+                    firstTerm = false;
+                }
+            }
+
+            // Add slack/surplus variables
+            int numSlacks = rhsColumn - integerVariableIndices.Count;
+            for (int j = integerVariableIndices.Count; j < rhsColumn; j++)
+            {
+                double coeff = tableau[cutRow, j];
+                if (Math.Abs(coeff) > 1e-6)
+                {
+                    if (!firstTerm && coeff > 0) cut.Append(" + ");
+                    if (coeff < 0) cut.Append(" - ");
+
+                    // Determine if it's a slack or surplus variable
+                    string varType = "s"; // default to slack
+                    int constraintIndex = j - integerVariableIndices.Count;
+                    if (constraintTypes != null && constraintIndex < constraintTypes.Count)
+                    {
+                        varType = constraintTypes[constraintIndex] == ">=" ? "e" : "s";
+                    }
+                    int varNum = constraintIndex + 1;
+
+                    cut.Append($"{Math.Abs(coeff):0.###}{varType}{varNum}");
+                    firstTerm = false;
+                }
+            }
+
+            cut.Append($" ≤ {tableau[cutRow, rhsColumn]:0.###}");
+
+            return cut.ToString();
+        }
+        private void ExtractSolution(double[,] tableau, List<int> integerVariableIndices, LPModel model, StringBuilder result)
+        {
+            int cols = tableau.GetLength(1);
+            int rhsColumn = cols - 1;
+            int rows = tableau.GetLength(0);
+
+            result.AppendLine("\n=== Final Solution ===");
+
+            // Create a dictionary to store variable values
+            Dictionary<int, double> variableValues = new Dictionary<int, double>();
+
+            // Initialize all variables to 0
+            for (int i = 0; i < model.NumVariables; i++)
+            {
+                variableValues[i] = 0;
+            }
+
+            // Find basic variables and their values
+            for (int row = 1; row < rows; row++)
+            {
+                for (int col = 0; col < rhsColumn; col++)
+                {
+                    if (Math.Abs(tableau[row, col] - 1) < 1e-6)
+                    {
+                        // This is a basic variable
+                        variableValues[col] = tableau[row, rhsColumn];
                         break;
                     }
                 }
             }
 
-            return values;
-        }
-
-        private void PrintSolution(double[,] tableau, int numVariables, int numConstraints, Action<string> logOutput)
-        {
-            int rhsCol = tableau.GetLength(1) - 1;
-
-            logOutput?.Invoke("Optimal Solution:\n");
-            logOutput?.Invoke($"Objective Value: {tableau[0, rhsCol]:F3}\n\n");
-
-            logOutput?.Invoke("Decision Variables:\n");
-            for (int j = 0; j < numVariables; j++)
+            // Extract values of decision variables
+            for (int i = 0; i < model.NumVariables; i++)
             {
-                double value = 0;
-
-                // Check if this variable is basic
-                for (int i = 1; i <= numConstraints; i++)
-                {
-                    if (Math.Abs(tableau[i, j] - 1) < Tolerance)
-                    {
-                        value = tableau[i, rhsCol];
-                        break;
-                    }
-                }
-
-                logOutput?.Invoke($"x{j + 1} = {value:F3}\n");
+                result.AppendLine($"x{i + 1} = {variableValues[i]:0.####}");
             }
 
-            logOutput?.Invoke("\nSlack Variables:\n");
-            for (int j = numVariables; j < numVariables + numConstraints; j++)
+            // Calculate objective value from the solution and model coefficients
+            double objectiveValue = 0;
+            for (int i = 0; i < model.NumVariables; i++)
             {
-                double value = 0;
-
-                // Check if this slack variable is basic
-                for (int i = 1; i <= numConstraints; i++)
-                {
-                    if (Math.Abs(tableau[i, j] - 1) < Tolerance)
-                    {
-                        value = tableau[i, rhsCol];
-                        break;
-                    }
-                }
-
-                logOutput?.Invoke($"s{j - numVariables + 1} = {value:F3}\n");
+                objectiveValue += model.ObjectiveCoefficients[i] * variableValues[i];
             }
+
+            // For minimization problems, ensure positive objective value
+            if (model.ObjectiveType.Equals("Min", StringComparison.OrdinalIgnoreCase))
+            {
+                objectiveValue = Math.Abs(objectiveValue);
+            }
+
+            result.AppendLine($"Objective Value: {objectiveValue:0.####}");
         }
-    }
-
-    internal class CuttingPlaneResult  
-    {
-        public bool SolutionFound { get; set; }
-        public double ObjectiveValue { get; set; }
-        public double[] VariableValues { get; set; } = Array.Empty<double>();
-        public double[,] FinalTableau { get; set; } = new double[0, 0];
-        public List<CuttingPlaneIteration> Iterations { get; set; } = new List<CuttingPlaneIteration>();
-    }
-
-    internal class CuttingPlaneIteration  
-    {
-        public int Iteration { get; set; }
-        public double[,] Tableau { get; set; } = new double[0, 0];
-        public string Message { get; set; } = string.Empty;
     }
 }
 

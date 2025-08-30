@@ -89,7 +89,7 @@ namespace LP_Solver.Models
             return sb.ToString();
         }
 
-        public string TableauToString(double[,] tableau, int numVariables, int numConstraints, List<string>? constraintTypes = null)
+        /*public string TableauToString(double[,] tableau, int numVariables, int numConstraints, List<string>? constraintTypes = null)
         {
             int rows = tableau.GetLength(0);
             int cols = tableau.GetLength(1);
@@ -126,6 +126,50 @@ namespace LP_Solver.Models
                 for (int j = 0; j < cols; j++)
                 {
                     // Avoid printing -0
+                    string value = tableau[i, j].ToString("0.###").Replace("-0", "0");
+                    sb.Append(value.PadLeft(8));
+                }
+                sb.AppendLine();
+            }
+
+            return sb.ToString();
+        }*/
+        public string TableauToString(double[,] tableau, int numVariables, int numConstraints, List<string> constraintTypes)
+        {
+            int rows = tableau.GetLength(0);
+            int cols = tableau.GetLength(1);
+            int rhsColumn = cols - 1; // RHS is always the last column
+
+            // Column headers: x1,x2,...,slack/surplus, RHS
+            var colHeaders = new List<string>();
+            for (int i = 0; i < numVariables; i++)
+                colHeaders.Add("x" + (i + 1));
+
+            for (int i = 0; i < numConstraints; i++)
+            {
+                if (constraintTypes != null && i < constraintTypes.Count && constraintTypes[i] == ">=")
+                    colHeaders.Add("e" + (i + 1)); // surplus variable
+                else
+                    colHeaders.Add("s" + (i + 1)); // slack variable
+            }
+
+            colHeaders.Add("RHS");
+
+            var sb = new StringBuilder();
+
+            // Header row
+            sb.Append("     ");
+            foreach (var col in colHeaders)
+                sb.Append(col.PadLeft(8));
+            sb.AppendLine();
+
+            // Data rows
+            for (int i = 0; i < rows; i++)
+            {
+                string rowHeader = (i == 0) ? "z" : $"C{i}";
+                sb.Append(rowHeader.PadRight(5));
+                for (int j = 0; j < cols; j++)
+                {
                     string value = tableau[i, j].ToString("0.###").Replace("-0", "0");
                     sb.Append(value.PadLeft(8));
                 }
