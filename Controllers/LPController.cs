@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace LP_Solver.Controllers
@@ -21,7 +22,6 @@ namespace LP_Solver.Controllers
         private double[,] LastOptimalTableau;
         private List<int> LastBasicIndices;
         private LPModel _currentModel;
-
 
 
         public LPController()
@@ -117,7 +117,112 @@ namespace LP_Solver.Controllers
                 logOutput($"Error: {ex.Message}");
             }
         }
-        
+        static string PrettyPath(string p)
+        {
+            if (string.IsNullOrEmpty(p) || p == "P") return "";
+            var segs = p.Split('.').Skip(1).ToArray();
+            // convert ONLY if we actually see a legacy '0'
+            if (segs.Any(s => s == "0"))
+                segs = segs.Select(s => s == "0" ? "1" : s == "1" ? "2" : s).ToArray();
+            return string.Join('.', segs);
+        }
+
+        public void SolveKnapsackFromInput(string input, Action<string> log)
+        {
+            var ks = new KnapsackParser().Parse(input);
+            if (ks.WasMinConvertedToMax)
+                log("Note: objective was Min — normalized to Max by negating values.\r\n");
+
+            // 1) Initial tableau 
+            var (tab, cols, rows) = _canonicalForm.BuildKnapsackXOnlyTableau(ks);
+            log("\r\n" + _canonicalForm.TableauToStringCustom(tab, cols, rows, title: "Initial Tableau:"));
+
+            // 2) Canonical text block (requirements ask to show Canonical Form)
+            log("\r\n=== Canonical Form (Knapsack IP) ===\r\n");
+            log($"Maximize: z = {string.Join(" + ", ks.Items.Select(i => $"{i.Value}*x{i.Index + 1}"))}\r\n");
+            log("Subject to:\r\n");
+            log($"  {string.Join(" + ", ks.Items.Select(i => $"{i.Weight}*x{i.Index + 1}"))} <= {ks.Capacity}\r\n");
+            log($"Binary: x1..x{ks.Items.Count} in {{0,1}}\r\n");
+
+            // 3) Solve with DFS/backtracking B&B and capture the trace
+            var trace = new KnapsackTrace();
+            var res = KnapsackBBSolver.SolveBacktracking(ks.Items, ks.Capacity, log, trace);
+
+            // 4) For every node (sub-problem) with a 0/1 decision, print its tableau
+            var decisionsByPath = new Dictionary<string, List<(int index, int decision)>>();
+            decisionsByPath["P"] = new List<(int, int)>();
+
+            string Parent(string path)
+            {
+                int k = path.LastIndexOf('.');
+                return k >= 0 ? path.Substring(0, k) : "P";
+            }
+
+            foreach (var n in trace.Nodes)
+            {
+                if (!n.Decision.HasValue || n.ItemOriginalIndex < 0) continue;
+
+                if (!decisionsByPath.TryGetValue(n.Path, out var list))
+                {
+                    var parent = Parent(n.Path);
+                    decisionsByPath[n.Path] = list = decisionsByPath.ContainsKey(parent)
+                        ? new List<(int, int)>(decisionsByPath[parent])
+                        : new List<(int, int)>();
+                }
+
+                list.Add((n.ItemOriginalIndex, n.Decision.Value));
+
+                var (subTab, subCols, subRows) =
+                    _canonicalForm.BuildKnapsackXOnlyTableauWithDecisions(ks, list);
+
+                string title = $"Sub-problem {PrettyPath(n.Path)}  (x{n.ItemOriginalIndex + 1} = {n.Decision.Value})";
+                if (!double.IsNaN(n.Bound) && !double.IsInfinity(n.Bound)) title += $"   UB={Math.Round(n.Bound, 3):0.###}";
+                if (!string.IsNullOrWhiteSpace(n.Status)) title += $"   [{n.Status}]";
+
+                log(_canonicalForm.TableauToStringCustom(subTab, subCols, subRows, title: title));
+            }
+
+            // 5) Summary
+            var dv = string.Join(", ", res.DecisionVector.Select(b => b ? "1" : "0"));
+            log($"\r\n=== Knapsack Result ===\r\n");
+            log($"Capacity: {res.Capacity}\r\n");
+            log($"Best Value: {res.BestValue}\r\n");
+            log($"Best Weight: {res.BestWeight}\r\n");
+            log($"Decision Vector: [{dv}]\r\n");
+            log($"Nodes Explored: {res.NodesExplored}, Pruned: {res.NodesPruned}\r\n");
+        }
+
+
+        // ====================== NON-LINEAR (Golden Section) ======================
+        public void SolveNonlinearFromInput(string input, Action<string> log)
+        {
+            log ??= _ => { };
+
+            var m = new NonlinearParser().Parse(input);
+
+            log("\r\n=== Nonlinear (Golden Section) ===\r\n");
+            log($"Objective: {(m.IsMax ? "Max" : "Min")}\r\n");
+            log($"f(x) = {m.Expr}\r\n");
+            log(FormattableString.Invariant(
+                $"Interval: [{m.A}, {m.B}], tol={m.Tol}, maxIter={(m.MaxIter > 0 ? m.MaxIter : -1)}\r\n"));
+
+            double xstar, fstar; int iters;
+
+            if (m.IsMax)
+            {
+                var res = GoldenSectionSolver.Maximize(m.F, m.A, m.B, m.Tol, m.MaxIter, log);
+                xstar = res.xstar; fstar = res.fstar; iters = res.iters;
+            }
+            else
+            {
+                var res = GoldenSectionSolver.Minimize(m.F, m.A, m.B, m.Tol, m.MaxIter, log);
+                xstar = res.xstar; fstar = res.fstar; iters = res.iters;
+            }
+
+            log(FormattableString.Invariant(
+                $"\r\nSummary: x* = {xstar:0.000}, f* = {fstar:0.000}, iterations = {iters}\r\n"));
+        }
+
         public void LogModelAndStandardform(LPModel model, Action<string> logOutput)
         {
             logOutput($"Objective: {model.ObjectiveType}\r\n");

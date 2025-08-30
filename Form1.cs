@@ -97,6 +97,7 @@ namespace LP_Solver
                         AppendOutput($"Error: {ex.Message}\r\n");
                     }
                     break;
+
                 case 7: // Nonlinear (Golden Section)
                     txtOutput.Clear();
                     try
@@ -113,12 +114,6 @@ namespace LP_Solver
 
             comboBox1.SelectedIndex = 0;
         }
-
-        private void AppendOutput(string text)
-        {
-            txtOutput.AppendText(text);
-        }
-
         private void btnLoadFile_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog openFileDialog = new OpenFileDialog())

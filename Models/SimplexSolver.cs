@@ -159,15 +159,6 @@ namespace LP_Solver.Models
             // gets the pivoting point where the pivot row and columns interconnnects, And then diveds each column with that value.
             basis[pivotRow - 1] = pivotCol;
             double pivotElement = tableau[pivotRow, pivotCol];
-            for(int j = 0; j < numCols; j++)
-            {
-                logOutput("\r\nSolution is Unbounded.\r\n");
-                return false; // Stop iterations
-            }
-
-            // gets the pivoting point where the pivot row and columns interconnnects, And then diveds each column with that value.
-            basis[pivotRow - 1] = pivotCol;
-            double pivotElement = tableau[pivotRow, pivotCol];
             for (int j = 0; j < numCols; j++)
             {
                 tableau[pivotRow, j] /= pivotElement;

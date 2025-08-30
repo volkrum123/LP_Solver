@@ -176,7 +176,7 @@ namespace LP_Solver.Models
                 }
                 sb.AppendLine();
             }
-
+            return sb.ToString();
         }
 
         // Build knapsack tableau with ONLY x-columns + RHS.
